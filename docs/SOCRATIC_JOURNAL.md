@@ -76,3 +76,25 @@ Use this as a study guide to revisit key ideas.
 
 **Demonstrated in:** `openspec/changes/tool-calling-read-file/tasks.md` — task groups ordered: (1) types, (2) registry, (3) read_file, (4) accumulator, (5) agent loop, (6) REPL integration, (7) manual testing.
 
+---
+
+## Step 3 - Editing and Codebase Search Tools
+
+### Q1: When a Node.js built-in API requires a newer version, should you bump the minimum version or polyfill?
+
+**Why it matters:** The `glob` and `grep` tools use `glob()` from `node:fs/promises`, which was added in Node 22. CI ran Node 20 and the tools silently failed — caught by error handlers, returning `{ isError: true }`. This is a real dependency management decision: do you use the platform's built-in API and accept a higher minimum version, or add a polyfill/package to support older runtimes?
+
+**What we learned:** For a developer tool (not a library others install), bumping to Node 22 LTS was the right call. The tradeoffs:
+
+1. **Bump Node version** — Zero dependencies added, uses battle-tested platform API, Node 22 has been LTS since October 2024. Downside: anyone on Node 20 can't run the tool. For a dev tool used by its author, this is a non-issue.
+2. **Manual directory walker** — Works on Node 20, but you're writing and maintaining recursive filesystem traversal code that the platform already provides. More surface area for bugs (symlink loops, permission errors, path normalization).
+3. **npm glob package** — Battle-tested, but adds a dependency for something the platform now provides natively. Dependencies have maintenance costs (updates, audits, supply chain risk).
+
+The general principle: **prefer platform APIs over dependencies when you can control your runtime**. Libraries consumed by others need broader compatibility. Tools you control don't.
+
+**Demonstrated in:**
+- `src/tools/glob.ts:1` — `import { glob as fsGlob } from "node:fs/promises"` (the API that requires Node 22)
+- `src/tools/grep.ts:2` — same import for directory traversal in grep
+- `.github/workflows/ci.yml:18` — `node-version: 22` (the fix)
+- `package.json:20-22` — `"engines": { "node": ">=22" }` (enforces the requirement)
+
