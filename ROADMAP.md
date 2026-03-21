@@ -12,15 +12,15 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 - [x] Add `chalk` as the terminal output styling dependency.
 - [x] Add a basic `src/cli.ts` entrypoint that boots the app.
 - [x] Add `dev`, `build`, `typecheck`, and `test` scripts to `package.json`.
-- [ ] Add a `curl` script or doc snippet to verify Anthropic API connectivity.
-- [ ] Create a small local playground project directory for tool testing.
-- [ ] Create a CI workflow file at `.github/workflows/ci.yml`.
-- [ ] Add a CI step to install dependencies.
-- [ ] Add a CI step to run `typecheck`.
-- [ ] Add a CI step to run `test`.
-- [ ] Add a CI step to run `build`.
-- [ ] Add a CI smoke check step that runs CLI `--help`.
-- [ ] Add a CI smoke check step that runs CLI `--version`.
+- [x] Add a `curl` script or doc snippet to verify Anthropic API connectivity.
+- [x] Create a small local playground project directory for tool testing.
+- [x] Create a CI workflow file at `.github/workflows/ci.yml`.
+- [x] Add a CI step to install dependencies.
+- [x] Add a CI step to run `typecheck`.
+- [x] Add a CI step to run `test`.
+- [x] Add a CI step to run `build`.
+- [x] Add a CI smoke check step that runs CLI `--help`.
+- [x] Add a CI smoke check step that runs CLI `--version`.
 
 ## Step 1 - Core REPL and Streaming Chat Loop
 
