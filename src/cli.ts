@@ -16,17 +16,21 @@ function readPackageMetadata(): PackageMetadata {
 }
 
 const metadata = readPackageMetadata();
-const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
 const program = new Command();
 
 program.name(metadata.name).description(metadata.description).version(metadata.version);
 
-program.action(() => {
-  console.log(chalk.cyan("AI Coding Agent CLI bootstrap is ready."));
-  if (!anthropicApiKey) {
-    console.log(chalk.yellow("ANTHROPIC_API_KEY is not configured yet (non-blocking for this step)."));
+program.action(async () => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    console.error(chalk.red("Error: ANTHROPIC_API_KEY is not set. Set it in your environment or .env file."));
+    process.exit(1);
   }
+
+  const { startRepl } = await import("./repl.js");
+  await startRepl(apiKey);
 });
 
 program.parse();
