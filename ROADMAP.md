@@ -34,10 +34,10 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 - [x] Handle `exit` and `quit` commands for graceful shutdown.
 - [x] Handle `SIGINT` (Ctrl+C) for clean process termination.
 - [x] Catch API/network errors and show a non-crashing error message.
-- [ ] Add a manual test for multi-turn context continuity.
-- [ ] Add a manual test for streaming behavior under normal network conditions.
-- [ ] Add a manual test: disconnect the network and send a message; verify graceful API error handling.
-- [ ] Add a manual test: press Ctrl+C during idle REPL; verify clean shutdown without stack trace.
+- [x] Add a manual test for multi-turn context continuity.
+- [x] Add a manual test for streaming behavior under normal network conditions.
+- [x] Add a manual test: disconnect the network and send a message; verify graceful API error handling.
+- [x] Add a manual test: press Ctrl+C during idle REPL; verify clean shutdown without stack trace.
 
 ## Step 2 - Tool Calling and `read_file`
 

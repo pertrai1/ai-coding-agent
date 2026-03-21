@@ -18,25 +18,31 @@ export function isEmptyInput(input: string): boolean {
   return input.trim() === "";
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 export async function startRepl(apiKey: string): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const messages: Message[] = [];
-
-  const handleSigint = (): void => {
-    process.stdout.write("\n");
-    console.log(chalk.cyan("Goodbye!"));
-    rl.close();
-    process.exit(0);
-  };
-
-  process.on("SIGINT", handleSigint);
 
   console.log(chalk.cyan("AI Coding Agent"));
   console.log(chalk.dim('Type "exit" or "quit" to leave.\n'));
 
   try {
     while (true) {
-      const input = await rl.question(PROMPT);
+      let input: string;
+      try {
+        input = await rl.question(PROMPT);
+      } catch (error: unknown) {
+        if (isAbortError(error)) {
+          process.stdout.write("\n");
+          console.log(chalk.cyan("Goodbye!"));
+          return;
+        }
+        throw error;
+      }
+
       const trimmed = input.trim();
 
       if (isEmptyInput(input)) {
@@ -45,8 +51,7 @@ export async function startRepl(apiKey: string): Promise<void> {
 
       if (isExitCommand(input)) {
         console.log(chalk.cyan("Goodbye!"));
-        rl.close();
-        process.exit(0);
+        return;
       }
 
       messages.push({ role: "user", content: trimmed });
@@ -72,6 +77,11 @@ export async function startRepl(apiKey: string): Promise<void> {
       } catch (error: unknown) {
         process.stdout.write("\n");
 
+        if (isAbortError(error)) {
+          console.log(chalk.cyan("Goodbye!"));
+          return;
+        }
+
         if (error instanceof AnthropicError) {
           if (error.statusCode) {
             console.error(chalk.red(`API error (${error.statusCode}): ${error.message}`));
@@ -86,7 +96,6 @@ export async function startRepl(apiKey: string): Promise<void> {
       }
     }
   } finally {
-    process.off("SIGINT", handleSigint);
     rl.close();
   }
 }

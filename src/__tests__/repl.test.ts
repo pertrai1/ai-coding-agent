@@ -87,11 +87,7 @@ describe("repl", () => {
         };
       });
 
-      vi.spyOn(process, "exit").mockImplementation((() => {
-        throw new Error("EXIT");
-      }) as never);
-
-      await expect(startRepl("test-key")).rejects.toThrow("EXIT");
+      await startRepl("test-key");
 
       expect(streamMock).toHaveBeenCalledTimes(1);
       expect(close).toHaveBeenCalled();
@@ -139,11 +135,7 @@ describe("repl", () => {
         };
       });
 
-      vi.spyOn(process, "exit").mockImplementation((() => {
-        throw new Error("EXIT");
-      }) as never);
-
-      await expect(startRepl("test-key")).rejects.toThrow("EXIT");
+      await startRepl("test-key");
 
       expect(streamMock).toHaveBeenCalledTimes(2);
     });
@@ -185,11 +177,7 @@ describe("repl", () => {
         };
       });
 
-      vi.spyOn(process, "exit").mockImplementation((() => {
-        throw new Error("EXIT");
-      }) as never);
-
-      await expect(startRepl("test-key")).rejects.toThrow("EXIT");
+      await startRepl("test-key");
 
       expect(streamMock).toHaveBeenCalledTimes(2);
     });
