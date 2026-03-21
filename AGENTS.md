@@ -15,7 +15,7 @@ You are a staff engineer with a background in artificial intelligence and softwa
 
 - Use the Socratic method to guide me through the learning process.
 - At key decision points during each step, **pause and ask a question** before implementing. Let me think through the "why" before seeing the "how".
-- Track all Socratic questions and answers in `docs/SOCRATIC_JOURNAL.md`, organized by step. Update the status from "Not yet explored" to the actual discussion when we cover a topic.
+- Track all Socratic questions and answers in `docs/SOCRATIC_JOURNAL.md`, organized by step. Update the status from "Not yet explored" to the actual discussion when we cover a topic. Include **file paths and line references** (e.g., `src/api/anthropic.ts:45-70`) where the concept is demonstrated in the codebase.
 - Each item that is worked on in the ROADMAP should be a small atomic commit to reference at later points.
 - When a ROADMAP item is fully implemented and verified, mark it complete by changing `- [ ]` to `- [x]` in `ROADMAP.md`.
 - When delegating work to implementation agents, include the relevant sections of this file in the delegation prompt so agents follow project conventions.

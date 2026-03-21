@@ -2,6 +2,8 @@
 
 Questions explored during each step of building the AI coding agent. Each entry captures a concept we discussed, what was learned, and why it matters.
 
+When answering a question, include **file paths and line references** where the concept is demonstrated in the codebase (e.g., `src/api/anthropic.ts:45-70`). This connects the theory to real code you can revisit.
+
 Use this as a study guide to revisit key ideas.
 
 ---
