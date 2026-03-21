@@ -24,16 +24,16 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 1 - Core REPL and Streaming Chat Loop
 
-- [ ] Implement a terminal REPL loop that accepts user input.
-- [ ] Implement an Anthropic REST client wrapper with auth headers.
-- [ ] Implement request mapping from local messages to Anthropic message format.
-- [ ] Implement streaming event parsing for Anthropic responses.
-- [ ] Render streamed assistant tokens to the terminal as they arrive.
-- [ ] Store conversation history in memory as ordered messages.
-- [ ] Include full conversation history in each model request.
-- [ ] Handle `exit` and `quit` commands for graceful shutdown.
-- [ ] Handle `SIGINT` (Ctrl+C) for clean process termination.
-- [ ] Catch API/network errors and show a non-crashing error message.
+- [x] Implement a terminal REPL loop that accepts user input.
+- [x] Implement an Anthropic REST client wrapper with auth headers.
+- [x] Implement request mapping from local messages to Anthropic message format.
+- [x] Implement streaming event parsing for Anthropic responses.
+- [x] Render streamed assistant tokens to the terminal as they arrive.
+- [x] Store conversation history in memory as ordered messages.
+- [x] Include full conversation history in each model request.
+- [x] Handle `exit` and `quit` commands for graceful shutdown.
+- [x] Handle `SIGINT` (Ctrl+C) for clean process termination.
+- [x] Catch API/network errors and show a non-crashing error message.
 - [ ] Add a manual test for multi-turn context continuity.
 - [ ] Add a manual test for streaming behavior under normal network conditions.
 - [ ] Add a manual test: disconnect the network and send a message; verify graceful API error handling.
