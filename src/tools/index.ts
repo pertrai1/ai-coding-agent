@@ -1,5 +1,9 @@
 import type { ToolDefinition } from "../api/anthropic.js";
+import { editFileTool } from "./edit-file.js";
+import { globTool } from "./glob.js";
+import { grepTool } from "./grep.js";
 import { readFileTool } from "./read-file.js";
+import { writeFileTool } from "./write-file.js";
 
 export type { ToolDefinition };
 
@@ -37,6 +41,10 @@ export function createToolRegistry(): ToolRegistry {
   };
 
   registry.register(readFileTool);
+  registry.register(editFileTool);
+  registry.register(writeFileTool);
+  registry.register(globTool);
+  registry.register(grepTool);
 
   return registry;
 }

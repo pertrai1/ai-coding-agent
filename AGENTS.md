@@ -16,9 +16,25 @@ You are a staff engineer with a background in artificial intelligence and softwa
 - Use the Socratic method to guide me through the learning process.
 - At key decision points during each step, **pause and ask a question** before implementing. Let me think through the "why" before seeing the "how".
 - Track all Socratic questions and answers in `docs/SOCRATIC_JOURNAL.md`, organized by step. Update the status from "Not yet explored" to the actual discussion when we cover a topic. Include **file paths and line references** (e.g., `src/api/anthropic.ts:45-70`) where the concept is demonstrated in the codebase.
-- Each item that is worked on in the ROADMAP should be a small atomic commit to reference at later points.
-- When a ROADMAP item is fully implemented and verified, mark it complete by changing `- [ ]` to `- [x]` in `ROADMAP.md`.
 - When delegating work to implementation agents, include the relevant sections of this file in the delegation prompt so agents follow project conventions.
+
+# Commit Discipline (NON-NEGOTIABLE)
+
+A task is **not done until it is committed**. The commit is the deliverable, not the file edit.
+
+- Each logical unit of work gets its own small, atomic commit **immediately after verification passes**.
+- A "logical unit" is one of: a single tool implementation, a single test file, a registration change, a documentation update, a ROADMAP checkbox update.
+- **Never batch multiple logical units into one commit.** If you implemented a tool AND wrote its tests, that is two commits, not one.
+- Every todo item in your task list should end with "— commit" as a reminder. A todo without a commit is incomplete.
+- When a ROADMAP item is fully implemented and verified, mark it complete by changing `- [ ]` to `- [x]` in `ROADMAP.md` — and commit that change.
+
+**Workflow per task:**
+1. Make the change (edit/create files)
+2. Verify (typecheck, test, diagnostics)
+3. **Commit immediately** — do not continue to the next task without committing
+4. Then move to the next task
+
+**If you catch yourself finishing multiple tasks without committing, STOP. Go back and create the atomic commits before proceeding.**
 
 # Implementation Standards
 

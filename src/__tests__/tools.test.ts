@@ -8,6 +8,19 @@ import { createToolRegistry } from "../tools/index.js";
 import { readFileTool } from "../tools/read-file.js";
 
 describe("tool registry", () => {
+  it("registers all five built-in tools on creation", () => {
+    const registry = createToolRegistry();
+    const definitions = registry.getDefinitions();
+    const names = definitions.map((d) => d.name);
+
+    expect(names).toContain("read_file");
+    expect(names).toContain("edit_file");
+    expect(names).toContain("write_file");
+    expect(names).toContain("glob");
+    expect(names).toContain("grep");
+    expect(definitions).toHaveLength(5);
+  });
+
   it("registers and retrieves a tool by name", () => {
     const registry = createToolRegistry();
     const testTool = {

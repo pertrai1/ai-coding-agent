@@ -56,18 +56,18 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 3 - Editing and Codebase Search Tools
 
-- [ ] Implement `edit_file` using `findText` + `replaceText` targeted replacement.
-- [ ] Implement `write_file` for full-file creation.
-- [ ] Implement `glob` for file pattern matching.
-- [ ] Implement `grep` for text search with path and line numbers.
-- [ ] Register all tools in the shared tool catalog.
-- [ ] Add argument validation for each tool input schema.
-- [ ] Return structured success/error payloads for all tool executions.
-- [ ] Add a manual test task that edits an existing function comment.
-- [ ] Add a manual test task that creates a brand-new file.
-- [ ] Add a manual test task that uses `glob` to list language-specific files.
-- [ ] Add a manual test task that uses `grep` to find symbol usage with line numbers.
-- [ ] Add a manual test task that refactors a symbol via search + multi-file edits.
+- [x] Implement `edit_file` using `findText` + `replaceText` targeted replacement.
+- [x] Implement `write_file` for full-file creation.
+- [x] Implement `glob` for file pattern matching.
+- [x] Implement `grep` for text search with path and line numbers.
+- [x] Register all tools in the shared tool catalog.
+- [x] Add argument validation for each tool input schema.
+- [x] Return structured success/error payloads for all tool executions.
+- [x] Add a manual test task that edits an existing function comment.
+- [x] Add a manual test task that creates a brand-new file.
+- [x] Add a manual test task that uses `glob` to list language-specific files.
+- [x] Add a manual test task that uses `grep` to find symbol usage with line numbers.
+- [x] Add a manual test task that refactors a symbol via search + multi-file edits.
 
 ## Step 4 - Bash Tool and Permissions
 
