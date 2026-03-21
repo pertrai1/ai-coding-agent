@@ -4,7 +4,7 @@ A TypeScript CLI coding assistant powered by Anthropic's Claude. Streams respons
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - An [Anthropic API key](https://console.anthropic.com/)
 
 ## Setup
