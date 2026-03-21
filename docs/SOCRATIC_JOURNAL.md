@@ -54,3 +54,25 @@ Use this as a study guide to revisit key ideas.
 
 **See also:** `LESSONS_LEARNED.md` entry #1
 
+---
+
+## Step 2 - Tool Calling and `read_file`
+
+### Q1: How should `Message.content` change to support tool calling?
+
+**Why it matters:** The Anthropic API represents tool interactions as structured content blocks — `text`, `tool_use`, and `tool_result` — inside a `content` array. Our Step 1 type used `content: string`, which can't represent these. The design choice was: union type (`string | ContentBlock[]`) vs. always arrays.
+
+**What we learned:** Always using `ContentBlock[]` is the right call. A union type means every piece of code that touches `content` needs a "is this a string or array?" branch. With uniform arrays, there's one shape everywhere — `{ type: "text", text: "hello" }` for simple messages, and the same array naturally extends to hold `tool_use` and `tool_result` blocks. It's slightly more verbose for plain text, but eliminates an entire class of conditional logic.
+
+**Demonstrated in:** `src/api/anthropic.ts` — `TextBlock`, `ToolUseBlock`, `ToolResultBlock`, `ContentBlock` types and updated `Message` type (to be implemented).
+
+---
+
+### Q2: Why structure implementation bottom-up (types → plumbing → integration) instead of top-down?
+
+**Why it matters:** Bottom-up lets each layer establish a concrete contract that the layer above depends on. Types define shapes → registry defines lookup → accumulator defines stream processing → agent loop orchestrates. Each piece is testable in isolation before wiring into the next layer.
+
+**What we learned:** Bottom-up gives you a big picture view that you break into smaller, contractual pieces. Each layer fulfills a specific contract, and you build confidence incrementally: "types compile → registry tests pass → read_file tests pass → accumulator tests pass → agent loop tests pass → wire into REPL and it just works." Going top-down, you'd be writing the agent loop while the types it depends on don't exist — either guessing at shapes or constantly backtracking to fix foundations. It's like building a house: foundation, framing, walls, roof. Not the other way around.
+
+**Demonstrated in:** `openspec/changes/tool-calling-read-file/tasks.md` — task groups ordered: (1) types, (2) registry, (3) read_file, (4) accumulator, (5) agent loop, (6) REPL integration, (7) manual testing.
+

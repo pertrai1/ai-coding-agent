@@ -74,13 +74,27 @@ describe("repl", () => {
 
       const streamMock = vi.mocked(streamMessage);
       streamMock.mockImplementation(async function* (options) {
-        expect(options.messages).toEqual([{ role: "user", content: "hello" }]);
+        expect(options.messages).toEqual([
+          { role: "user", content: [{ type: "text", text: "hello" }] },
+        ]);
 
+        yield {
+          type: "content_block_start",
+          index: 0,
+          content_block: { type: "text", text: "" },
+        };
         yield {
           type: "content_block_delta",
           index: 0,
           delta: { type: "text_delta", text: "Hi" },
         };
+        yield { type: "content_block_stop", index: 0 };
+        yield {
+          type: "message_delta",
+          delta: { stop_reason: "end_turn", stop_sequence: null },
+          usage: { output_tokens: 5 },
+        };
+        yield { type: "message_stop" };
 
         return {
           usage: { inputTokens: 10, outputTokens: 5 },
@@ -111,23 +125,49 @@ describe("repl", () => {
         callCount += 1;
 
         if (callCount === 1) {
-          expect(options.messages).toEqual([{ role: "user", content: "hello" }]);
+          expect(options.messages).toEqual([
+            { role: "user", content: [{ type: "text", text: "hello" }] },
+          ]);
+          yield {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "text", text: "" },
+          };
           yield {
             type: "content_block_delta",
             index: 0,
             delta: { type: "text_delta", text: "Hi there" },
           };
+          yield { type: "content_block_stop", index: 0 };
+          yield {
+            type: "message_delta",
+            delta: { stop_reason: "end_turn", stop_sequence: null },
+            usage: { output_tokens: 5 },
+          };
+          yield { type: "message_stop" };
         } else {
           expect(options.messages).toEqual([
-            { role: "user", content: "hello" },
-            { role: "assistant", content: "Hi there" },
-            { role: "user", content: "follow up" },
+            { role: "user", content: [{ type: "text", text: "hello" }] },
+            { role: "assistant", content: [{ type: "text", text: "Hi there" }] },
+            { role: "user", content: [{ type: "text", text: "follow up" }] },
           ]);
+          yield {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "text", text: "" },
+          };
           yield {
             type: "content_block_delta",
             index: 0,
             delta: { type: "text_delta", text: "Sure" },
           };
+          yield { type: "content_block_stop", index: 0 };
+          yield {
+            type: "message_delta",
+            delta: { stop_reason: "end_turn", stop_sequence: null },
+            usage: { output_tokens: 5 },
+          };
+          yield { type: "message_stop" };
         }
 
         return {
@@ -162,15 +202,27 @@ describe("repl", () => {
         }
 
         expect(options.messages).toEqual([
-          { role: "user", content: "hello" },
-          { role: "user", content: "retry" },
+          { role: "user", content: [{ type: "text", text: "hello" }] },
+          { role: "user", content: [{ type: "text", text: "retry" }] },
         ]);
 
+        yield {
+          type: "content_block_start",
+          index: 0,
+          content_block: { type: "text", text: "" },
+        };
         yield {
           type: "content_block_delta",
           index: 0,
           delta: { type: "text_delta", text: "Ok" },
         };
+        yield { type: "content_block_stop", index: 0 };
+        yield {
+          type: "message_delta",
+          delta: { stop_reason: "end_turn", stop_sequence: null },
+          usage: { output_tokens: 5 },
+        };
+        yield { type: "message_stop" };
 
         return {
           usage: { inputTokens: 10, outputTokens: 5 },

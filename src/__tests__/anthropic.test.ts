@@ -6,6 +6,7 @@ import {
   parseSSEStream,
   streamMessage,
 } from "../api/anthropic.js";
+import type { ContentBlock } from "../api/anthropic.js";
 
 function createSSEStream(text: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -134,9 +135,9 @@ describe("Anthropic client", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       const messages = [
-        { role: "user" as const, content: "hello" },
-        { role: "assistant" as const, content: "hi" },
-        { role: "user" as const, content: "continue" },
+        { role: "user" as const, content: [{ type: "text" as const, text: "hello" }] },
+        { role: "assistant" as const, content: [{ type: "text" as const, text: "hi" }] },
+        { role: "user" as const, content: [{ type: "text" as const, text: "continue" }] },
       ];
 
       await createMessageStream({
@@ -171,7 +172,7 @@ describe("Anthropic client", () => {
         model: string;
         max_tokens: number;
         stream: boolean;
-        messages: Array<{ role: "user" | "assistant"; content: string }>;
+        messages: Array<{ role: "user" | "assistant"; content: ContentBlock[] }>;
         system?: string;
       };
 
@@ -191,7 +192,7 @@ describe("Anthropic client", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       await createMessageStream({
-        messages: [{ role: "user", content: "hello" }],
+        messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
         model: "claude-sonnet-4-5",
         apiKey: "test-key",
       });
@@ -229,7 +230,7 @@ describe("Anthropic client", () => {
 
       await expect(
         createMessageStream({
-          messages: [{ role: "user", content: "hello" }],
+          messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
           model: "claude-sonnet-4-5",
           apiKey: "bad-key",
         }),
@@ -246,14 +247,14 @@ describe("Anthropic client", () => {
 
       await expect(
         createMessageStream({
-          messages: [{ role: "user", content: "hello" }],
+          messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
           model: "claude-sonnet-4-5",
           apiKey: "test-key",
         }),
       ).rejects.toThrow("Network error: fetch failed");
       await expect(
         createMessageStream({
-          messages: [{ role: "user", content: "hello" }],
+          messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
           model: "claude-sonnet-4-5",
           apiKey: "test-key",
         }),
@@ -263,7 +264,7 @@ describe("Anthropic client", () => {
     it("throws when api key is missing", async () => {
       await expect(
         createMessageStream({
-          messages: [{ role: "user", content: "hello" }],
+          messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
           model: "claude-sonnet-4-5",
           apiKey: "",
         }),
@@ -281,7 +282,7 @@ describe("Anthropic client", () => {
 
       const events = await collectEvents(
         streamMessage({
-          messages: [{ role: "user", content: "hello" }],
+          messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
           model: "claude-sonnet-4-5",
           apiKey: "test-key",
         }),
@@ -307,7 +308,7 @@ describe("Anthropic client", () => {
 
       const consume = async (): Promise<void> => {
         for await (const _event of streamMessage({
-          messages: [{ role: "user", content: "hello" }],
+          messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
           model: "claude-sonnet-4-5",
           apiKey: "test-key",
         })) {
@@ -333,7 +334,7 @@ describe("Anthropic client", () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(createStreamingResponse(sse)));
 
       const generator = streamMessage({
-        messages: [{ role: "user", content: "hello" }],
+        messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
         model: "claude-sonnet-4-5",
         apiKey: "test-key",
       });

@@ -4,9 +4,40 @@
 
 export type MessageRole = "user" | "assistant";
 
+export type TextBlock = {
+  type: "text";
+  text: string;
+};
+
+export type ToolUseBlock = {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+};
+
+export type ToolResultBlock = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+};
+
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+
+export type ToolDefinition = {
+  name: string;
+  description: string;
+  input_schema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+};
+
 export type Message = {
   role: MessageRole;
-  content: string;
+  content: ContentBlock[];
 };
 
 // ---------------------------------------------------------------------------
@@ -33,19 +64,17 @@ export type MessageStartEvent = {
 export type ContentBlockStartEvent = {
   type: "content_block_start";
   index: number;
-  content_block: {
-    type: "text";
-    text: string;
-  };
+  content_block:
+    | { type: "text"; text: string }
+    | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
 };
 
 export type ContentBlockDeltaEvent = {
   type: "content_block_delta";
   index: number;
-  delta: {
-    type: "text_delta";
-    text: string;
-  };
+  delta:
+    | { type: "text_delta"; text: string }
+    | { type: "input_json_delta"; partial_json: string };
 };
 
 export type ContentBlockStopEvent = {
@@ -102,12 +131,20 @@ type CreateMessageStreamOptions = {
   apiKey: string;
   system?: string;
   maxTokens?: number;
+  tools?: ToolDefinition[];
 };
 
 export async function createMessageStream(
   options: CreateMessageStreamOptions,
 ): Promise<Response> {
-  const { messages, model, apiKey, system, maxTokens = DEFAULT_MAX_TOKENS } = options;
+  const {
+    messages,
+    model,
+    apiKey,
+    system,
+    maxTokens = DEFAULT_MAX_TOKENS,
+    tools,
+  } = options;
 
   if (!apiKey) {
     throw new AnthropicError("ANTHROPIC_API_KEY is not set.");
@@ -122,6 +159,10 @@ export async function createMessageStream(
 
   if (system) {
     body.system = system;
+  }
+
+  if (tools && tools.length > 0) {
+    body.tools = tools;
   }
 
   let response: Response;
@@ -248,6 +289,7 @@ type StreamMessageOptions = {
   apiKey: string;
   system?: string;
   maxTokens?: number;
+  tools?: ToolDefinition[];
 };
 
 export type StreamResult = {

@@ -65,6 +65,7 @@ npm run dev
 6. Type: `Hello` again
 
 **Expected:**
+
 - Step 4: A red error message appears (e.g., `Error: fetch failed` or `API error (...)`) and the REPL prompt (`>`) returns — it does NOT crash or hang
 - Step 6: The assistant responds normally after reconnecting
 
@@ -88,11 +89,64 @@ npm run dev
 
 ---
 
-## Results Tracker
+## Step 2 - Tool Calling and `read_file`
 
-| Test   | Status | Date | Notes |
-|--------|--------|------|-------|
-| 1.1    |        |      |       |
-| 1.2    |        |      |       |
-| 1.3    |        |      |       |
-| 1.4    |        |      |       |
+### Test 2.1: Read a specific file
+
+**Goal:** Verify the agent calls `read_file` and displays file contents in its response.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Read the contents of package.json`
+
+**Expected:** The agent calls the `read_file` tool (you should see it thinking/working), reads `package.json`, and responds with the file contents or a summary of them. The response should reference actual data from the file (name, version, dependencies, etc.).
+
+**Pass criteria:** The agent uses the `read_file` tool, successfully reads the file, and incorporates the real file contents into its answer.
+
+---
+
+### Test 2.2: Read multiple files sequentially
+
+**Goal:** Verify the agent can make multiple tool calls in a single conversation turn.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Read tsconfig.json and package.json and summarize the differences between them`
+
+**Expected:** The agent calls `read_file` for both files (possibly in the same turn or across two loop iterations), reads both, and provides a comparison or summary that references real data from each file.
+
+**Pass criteria:** Both files are read via tool calls. The response references specific content from both files.
+
+---
+
+### Test 2.3: Read a non-existent file
+
+**Goal:** Verify the agent handles file-not-found errors gracefully.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Read the file /tmp/this-file-definitely-does-not-exist-12345.txt`
+
+**Expected:** The agent calls `read_file`, receives a structured error (not a crash), and responds gracefully — e.g., "That file doesn't exist" or "I couldn't find that file." The REPL stays alive and accepts further input.
+
+**Pass criteria:** No crash, no stack trace. The agent acknowledges the error and continues the conversation.
+
+---
+
+### Test 2.4: No tool call needed
+
+**Goal:** Verify the agent does NOT call tools when the question doesn't require file access.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `What is 2+2?`
+
+**Expected:** The agent responds directly with "4" (or equivalent) without calling any tools. The response should appear quickly since no tool round-trip is needed.
+
+**Pass criteria:** The agent answers correctly. No `read_file` call is made — just a straight text response.
+
+---

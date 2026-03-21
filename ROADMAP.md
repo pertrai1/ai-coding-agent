@@ -41,18 +41,18 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 2 - Tool Calling and `read_file`
 
-- [ ] Define a provider-compatible tool schema format (name, description, JSON input schema).
-- [ ] Register a `read_file` tool with a `filePath` input.
-- [ ] Implement `read_file` to return file text for valid paths.
-- [ ] Return structured errors when files do not exist.
-- [ ] Detect model tool-call responses in the agent loop.
-- [ ] Execute requested tool calls and capture their outputs.
-- [ ] Append tool results back into conversation history.
-- [ ] Repeat tool-execute-response cycle until text output is returned.
-- [ ] Add a manual test prompt that requires reading one file.
-- [ ] Add a manual test prompt that requires reading multiple files sequentially.
-- [ ] Add a manual test prompt that reads a non-existent file and verifies structured error handling.
-- [ ] Add a manual test prompt that needs no file access and verifies no tool call is made.
+- [x] Define a provider-compatible tool schema format (name, description, JSON input schema).
+- [x] Register a `read_file` tool with a `filePath` input.
+- [x] Implement `read_file` to return file text for valid paths.
+- [x] Return structured errors when files do not exist.
+- [x] Detect model tool-call responses in the agent loop.
+- [x] Execute requested tool calls and capture their outputs.
+- [x] Append tool results back into conversation history.
+- [x] Repeat tool-execute-response cycle until text output is returned.
+- [x] Add a manual test prompt that requires reading one file.
+- [x] Add a manual test prompt that requires reading multiple files sequentially.
+- [x] Add a manual test prompt that reads a non-existent file and verifies structured error handling.
+- [x] Add a manual test prompt that needs no file access and verifies no tool call is made.
 
 ## Step 3 - Editing and Codebase Search Tools
 

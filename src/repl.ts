@@ -1,8 +1,10 @@
 import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
 
-import { AnthropicError, streamMessage } from "./api/anthropic.js";
+import { AnthropicError } from "./api/anthropic.js";
 import type { Message } from "./api/anthropic.js";
+import { runAgentLoop } from "./agent.js";
+import { createToolRegistry } from "./tools/index.js";
 
 const SYSTEM_PROMPT =
   "You are an AI coding assistant. You help users with programming questions, debug code, and write new code. Be concise and provide working code examples when appropriate.";
@@ -25,6 +27,7 @@ function isAbortError(error: unknown): boolean {
 export async function startRepl(apiKey: string): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const messages: Message[] = [];
+  const toolRegistry = createToolRegistry();
 
   console.log(chalk.cyan("AI Coding Agent"));
   console.log(chalk.dim('Type "exit" or "quit" to leave.\n'));
@@ -54,26 +57,22 @@ export async function startRepl(apiKey: string): Promise<void> {
         return;
       }
 
-      messages.push({ role: "user", content: trimmed });
+      messages.push({
+        role: "user",
+        content: [{ type: "text", text: trimmed }],
+      });
 
       try {
-        const stream = streamMessage({
+        await runAgentLoop({
           messages,
+          toolRegistry,
           model: MODEL,
           apiKey,
           system: SYSTEM_PROMPT,
+          write: (text) => process.stdout.write(text),
         });
 
-        let assistantText = "";
-        for await (const event of stream) {
-          if (event.type === "content_block_delta") {
-            process.stdout.write(event.delta.text);
-            assistantText += event.delta.text;
-          }
-        }
-
         process.stdout.write("\n");
-        messages.push({ role: "assistant", content: assistantText });
       } catch (error: unknown) {
         process.stdout.write("\n");
 
