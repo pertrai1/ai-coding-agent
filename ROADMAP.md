@@ -71,18 +71,18 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 4 - Bash Tool and Permissions
 
-- [ ] Implement a `bash` tool that executes shell commands.
-- [ ] Return `stdout`, `stderr`, and `exitCode` from `bash`.
-- [ ] Add per-tool permission modes: `allow`, `prompt`, `deny`.
-- [ ] Set defaults: `allow` for read-only tools, `prompt` for mutating tools.
-- [ ] Render approval prompts that clearly show tool name and arguments.
-- [ ] Resume tool execution when the user approves a prompt.
-- [ ] Return a structured rejection result when the user denies execution.
-- [ ] Ensure the agent adapts gracefully after a denied tool call.
-- [ ] Add a manual test where `bash` runs the project test command.
-- [ ] Add a manual test where `bash` is denied and the assistant continues safely.
-- [ ] Add a manual test where `read_file` is set to `allow` and runs without prompt.
-- [ ] Add a manual test with mixed tools (`allow` + `prompt`) and verify only prompted tools request approval.
+- [x] Implement a `bash` tool that executes shell commands.
+- [x] Return `stdout`, `stderr`, and `exitCode` from `bash`.
+- [x] Add per-tool permission modes: `allow`, `prompt`, `deny`.
+- [x] Set defaults: `allow` for read-only tools, `prompt` for mutating tools.
+- [x] Render approval prompts that clearly show tool name and arguments.
+- [x] Resume tool execution when the user approves a prompt.
+- [x] Return a structured rejection result when the user denies execution.
+- [x] Ensure the agent adapts gracefully after a denied tool call.
+- [x] Add a manual test where `bash` runs the project test command.
+- [x] Add a manual test where `bash` is denied and the assistant continues safely.
+- [x] Add a manual test where `read_file` is set to `allow` and runs without prompt.
+- [x] Add a manual test with mixed tools (`allow` + `prompt`) and verify only prompted tools request approval.
 
 ## Step 5 - Context Window and Conversation Compression
 
