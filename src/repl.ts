@@ -24,10 +24,34 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
+function formatToolInput(toolName: string, toolInput: Record<string, unknown>): string {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(toolInput)) {
+    const display = typeof value === "string" && value.length > 120
+      ? value.slice(0, 120) + "..."
+      : String(value);
+    lines.push(`  ${key}: ${display}`);
+  }
+  return lines.join("\n");
+}
+
+function createPromptForApproval(
+  rl: ReturnType<typeof createInterface>,
+): (toolName: string, toolInput: Record<string, unknown>) => Promise<boolean> {
+  return async (toolName: string, toolInput: Record<string, unknown>): Promise<boolean> => {
+    process.stdout.write("\n");
+    console.log(chalk.yellow(`⚡ Tool: ${toolName}`));
+    console.log(chalk.dim(formatToolInput(toolName, toolInput)));
+    const answer = await rl.question(chalk.yellow("  Allow? (y/n): "));
+    return answer.trim().toLowerCase() === "y";
+  };
+}
+
 export async function startRepl(apiKey: string): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const messages: Message[] = [];
   const toolRegistry = createToolRegistry();
+  const promptForApproval = createPromptForApproval(rl);
 
   console.log(chalk.cyan("AI Coding Agent"));
   console.log(chalk.dim('Type "exit" or "quit" to leave.\n'));
@@ -70,6 +94,7 @@ export async function startRepl(apiKey: string): Promise<void> {
           apiKey,
           system: SYSTEM_PROMPT,
           write: (text) => process.stdout.write(text),
+          promptForApproval,
         });
 
         process.stdout.write("\n");

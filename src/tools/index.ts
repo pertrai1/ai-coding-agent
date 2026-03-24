@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "../api/anthropic.js";
+import { bashTool } from "./bash.js";
 import { editFileTool } from "./edit-file.js";
 import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
@@ -12,11 +13,14 @@ export type ToolResult = {
   isError?: boolean;
 };
 
+export type ToolPermission = "allow" | "prompt" | "deny";
+
 export type ToolExecutor = (input: Record<string, unknown>) => Promise<ToolResult>;
 
 export type ToolRegistration = {
   definition: ToolDefinition;
   execute: ToolExecutor;
+  permission?: ToolPermission;
 };
 
 export type ToolRegistry = {
@@ -45,6 +49,7 @@ export function createToolRegistry(): ToolRegistry {
   registry.register(writeFileTool);
   registry.register(globTool);
   registry.register(grepTool);
+  registry.register(bashTool);
 
   return registry;
 }

@@ -8,7 +8,7 @@ import { createToolRegistry } from "../tools/index.js";
 import { readFileTool } from "../tools/read-file.js";
 
 describe("tool registry", () => {
-  it("registers all five built-in tools on creation", () => {
+  it("registers all six built-in tools on creation", () => {
     const registry = createToolRegistry();
     const definitions = registry.getDefinitions();
     const names = definitions.map((d) => d.name);
@@ -18,7 +18,24 @@ describe("tool registry", () => {
     expect(names).toContain("write_file");
     expect(names).toContain("glob");
     expect(names).toContain("grep");
-    expect(definitions).toHaveLength(5);
+    expect(names).toContain("bash");
+    expect(definitions).toHaveLength(6);
+  });
+
+  it("assigns allow permission to read-only tools", () => {
+    const registry = createToolRegistry();
+
+    expect(registry.get("read_file")?.permission).toBe("allow");
+    expect(registry.get("glob")?.permission).toBe("allow");
+    expect(registry.get("grep")?.permission).toBe("allow");
+  });
+
+  it("assigns prompt permission to mutating tools", () => {
+    const registry = createToolRegistry();
+
+    expect(registry.get("write_file")?.permission).toBe("prompt");
+    expect(registry.get("edit_file")?.permission).toBe("prompt");
+    expect(registry.get("bash")?.permission).toBe("prompt");
   });
 
   it("registers and retrieves a tool by name", () => {

@@ -269,6 +269,7 @@ describe("runAgentLoop", () => {
         description: "Test tool",
         input_schema: { type: "object", properties: {} },
       },
+      permission: "allow",
       execute: toolExecute,
     });
 
@@ -404,6 +405,7 @@ describe("runAgentLoop", () => {
         description: "Loop tool",
         input_schema: { type: "object", properties: {} },
       },
+      permission: "allow",
       execute: vi.fn().mockResolvedValue({ content: "ok" }),
     });
 
@@ -420,5 +422,322 @@ describe("runAgentLoop", () => {
 
     expect(streamMock).toHaveBeenCalledTimes(10);
     expect(write).toHaveBeenCalledWith("\n⚠ Warning: Maximum tool-calling iterations reached.\n");
+  });
+
+  it("executes allow-permission tool without calling promptForApproval", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "tool_use", id: "t1", name: "allowed_tool", input: {} },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "input_json_delta", partial_json: "{}" },
+          },
+          { type: "content_block_stop", index: 0 },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "tool_use", stop_sequence: null },
+            usage: { output_tokens: 1 },
+          },
+          { type: "message_stop" },
+        ]),
+      )
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+          { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "ok" } },
+          { type: "content_block_stop", index: 0 },
+          { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+          { type: "message_stop" },
+        ]),
+      );
+
+    const toolExecute = vi.fn().mockResolvedValue({ content: "result" });
+    const promptForApproval = vi.fn();
+
+    const registry = createToolRegistry();
+    registry.register({
+      definition: { name: "allowed_tool", description: "Allowed", input_schema: { type: "object", properties: {} } },
+      permission: "allow",
+      execute: toolExecute,
+    });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "go" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: registry,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      promptForApproval,
+    });
+
+    expect(toolExecute).toHaveBeenCalled();
+    expect(promptForApproval).not.toHaveBeenCalled();
+  });
+
+  it("denies tool with deny permission without executing or prompting", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "tool_use", id: "t1", name: "denied_tool", input: {} },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "input_json_delta", partial_json: "{}" },
+          },
+          { type: "content_block_stop", index: 0 },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "tool_use", stop_sequence: null },
+            usage: { output_tokens: 1 },
+          },
+          { type: "message_stop" },
+        ]),
+      )
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+          { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "ok" } },
+          { type: "content_block_stop", index: 0 },
+          { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+          { type: "message_stop" },
+        ]),
+      );
+
+    const toolExecute = vi.fn().mockResolvedValue({ content: "result" });
+    const promptForApproval = vi.fn();
+
+    const registry = createToolRegistry();
+    registry.register({
+      definition: { name: "denied_tool", description: "Denied", input_schema: { type: "object", properties: {} } },
+      permission: "deny",
+      execute: toolExecute,
+    });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "go" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: registry,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      promptForApproval,
+    });
+
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(promptForApproval).not.toHaveBeenCalled();
+
+    const toolResultMessage = messages[2];
+    const [toolResult] = toolResultMessage.content;
+    expect(toolResult).toMatchObject({
+      type: "tool_result",
+      is_error: true,
+      content: expect.stringContaining("denied_tool"),
+    });
+  });
+
+  it("calls promptForApproval for prompt-permission tool and executes on approval", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "tool_use", id: "t1", name: "prompt_tool", input: {} },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "input_json_delta", partial_json: '{"cmd":"test"}' },
+          },
+          { type: "content_block_stop", index: 0 },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "tool_use", stop_sequence: null },
+            usage: { output_tokens: 1 },
+          },
+          { type: "message_stop" },
+        ]),
+      )
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+          { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "ok" } },
+          { type: "content_block_stop", index: 0 },
+          { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+          { type: "message_stop" },
+        ]),
+      );
+
+    const toolExecute = vi.fn().mockResolvedValue({ content: "executed" });
+    const promptForApproval = vi.fn().mockResolvedValue(true);
+
+    const registry = createToolRegistry();
+    registry.register({
+      definition: { name: "prompt_tool", description: "Prompt", input_schema: { type: "object", properties: {} } },
+      permission: "prompt",
+      execute: toolExecute,
+    });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "go" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: registry,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      promptForApproval,
+    });
+
+    expect(promptForApproval).toHaveBeenCalledWith("prompt_tool", { cmd: "test" });
+    expect(toolExecute).toHaveBeenCalledWith({ cmd: "test" });
+  });
+
+  it("denies prompt-permission tool when user declines", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "tool_use", id: "t1", name: "prompt_tool", input: {} },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "input_json_delta", partial_json: "{}" },
+          },
+          { type: "content_block_stop", index: 0 },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "tool_use", stop_sequence: null },
+            usage: { output_tokens: 1 },
+          },
+          { type: "message_stop" },
+        ]),
+      )
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+          { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "ok" } },
+          { type: "content_block_stop", index: 0 },
+          { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+          { type: "message_stop" },
+        ]),
+      );
+
+    const toolExecute = vi.fn().mockResolvedValue({ content: "result" });
+    const promptForApproval = vi.fn().mockResolvedValue(false);
+
+    const registry = createToolRegistry();
+    registry.register({
+      definition: { name: "prompt_tool", description: "Prompt", input_schema: { type: "object", properties: {} } },
+      permission: "prompt",
+      execute: toolExecute,
+    });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "go" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: registry,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      promptForApproval,
+    });
+
+    expect(promptForApproval).toHaveBeenCalled();
+    expect(toolExecute).not.toHaveBeenCalled();
+
+    const toolResultMessage = messages[2];
+    const [toolResult] = toolResultMessage.content;
+    expect(toolResult).toMatchObject({
+      type: "tool_result",
+      is_error: true,
+      content: expect.stringContaining("prompt_tool"),
+    });
+  });
+
+  it("denies prompt-permission tool when no promptForApproval callback provided", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          {
+            type: "content_block_start",
+            index: 0,
+            content_block: { type: "tool_use", id: "t1", name: "prompt_tool", input: {} },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "input_json_delta", partial_json: "{}" },
+          },
+          { type: "content_block_stop", index: 0 },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "tool_use", stop_sequence: null },
+            usage: { output_tokens: 1 },
+          },
+          { type: "message_stop" },
+        ]),
+      )
+      .mockImplementationOnce(() =>
+        createStreamFromEvents([
+          { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+          { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "ok" } },
+          { type: "content_block_stop", index: 0 },
+          { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+          { type: "message_stop" },
+        ]),
+      );
+
+    const toolExecute = vi.fn().mockResolvedValue({ content: "result" });
+
+    const registry = createToolRegistry();
+    registry.register({
+      definition: { name: "prompt_tool", description: "Prompt", input_schema: { type: "object", properties: {} } },
+      permission: "prompt",
+      execute: toolExecute,
+    });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "go" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: registry,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      // no promptForApproval
+    });
+
+    expect(toolExecute).not.toHaveBeenCalled();
+
+    const toolResultMessage = messages[2];
+    const [toolResult] = toolResultMessage.content;
+    expect(toolResult).toMatchObject({
+      type: "tool_result",
+      is_error: true,
+      content: expect.stringContaining("denied"),
+    });
   });
 });

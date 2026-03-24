@@ -227,3 +227,68 @@ npm run dev
 **Pass criteria:** The agent uses `grep` to find all `isError` references. The summary covers multiple tool files. Line numbers are accurate (verify by spot-checking a few).
 
 ---
+
+## Step 4 - Bash Tool and Permissions
+
+### Test 4.1: Bash tool with approval prompt
+
+**Goal:** Verify the `bash` tool triggers an approval prompt and executes on approval.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Run the command "echo hello world" using bash`
+3. When the approval prompt appears, verify it shows the tool name (`bash`) and the command (`echo hello world`)
+4. Type: `y` to approve
+
+**Expected:** The agent calls the `bash` tool. An approval prompt appears showing the tool name and command. After approving, the command runs and the agent reports the output (`hello world`), along with exit code 0.
+
+**Pass criteria:** The approval prompt renders with tool name and command. Typing `y` allows execution. The agent displays the correct output.
+
+---
+
+### Test 4.2: Bash tool denied by user
+
+**Goal:** Verify the agent adapts gracefully when a bash tool call is denied.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Run the command "ls -la" using bash`
+3. When the approval prompt appears, type: `n` to deny
+
+**Expected:** The tool does NOT execute. The agent receives a denial result and responds gracefully — e.g., acknowledging it was unable to run the command and possibly suggesting an alternative approach. The REPL stays alive and accepts further input.
+
+**Pass criteria:** No command execution occurs. No crash or stack trace. The agent acknowledges the denial and continues the conversation.
+
+---
+
+### Test 4.3: Read-only tool runs without prompt (allow mode)
+
+**Goal:** Verify that `read_file` (permission: `allow`) executes immediately with no approval prompt.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Read the contents of package.json`
+
+**Expected:** The agent calls `read_file` and returns the file contents. No approval prompt is shown — the tool executes immediately without user interaction.
+
+**Pass criteria:** The `read_file` tool runs without any `Allow? (y/n)` prompt. The response includes real data from `package.json`.
+
+---
+
+### Test 4.4: Mixed allow + prompt tools in one turn
+
+**Goal:** Verify that only `prompt`-mode tools ask for approval when multiple tools are called in one turn.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Read the file package.json, then create a new file at playground/test-output.txt with the text "test complete"`
+
+**Expected:** The agent calls `read_file` (allow mode) — this runs immediately with no prompt. Then it calls `write_file` (prompt mode) — an approval prompt appears for this tool showing the file path. After approving, the file is created.
+
+**Pass criteria:** `read_file` runs without a prompt. `write_file` triggers an approval prompt. Only the mutating tool requires user interaction.
+
+---

@@ -61,6 +61,7 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
 }
 
 export const globTool: ToolRegistration = {
+  permission: "allow",
   definition: {
     name: "glob",
     description:

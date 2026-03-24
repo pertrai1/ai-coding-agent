@@ -141,6 +141,7 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
 }
 
 export const grepTool: ToolRegistration = {
+  permission: "allow",
   definition: {
     name: "grep",
     description:

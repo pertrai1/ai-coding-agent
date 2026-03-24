@@ -58,6 +58,7 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
 }
 
 export const writeFileTool: ToolRegistration = {
+  permission: "prompt",
   definition: {
     name: "write_file",
     description:

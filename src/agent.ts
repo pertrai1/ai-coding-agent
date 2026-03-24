@@ -90,10 +90,14 @@ export type AgentLoopOptions = {
   apiKey: string;
   system?: string;
   write: (text: string) => void;
+  promptForApproval?: (
+    toolName: string,
+    toolInput: Record<string, unknown>,
+  ) => Promise<boolean>;
 };
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
-  const { messages, toolRegistry, model, apiKey, system, write } = options;
+  const { messages, toolRegistry, model, apiKey, system, write, promptForApproval } = options;
   const toolDefinitions = toolRegistry.getDefinitions();
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
@@ -134,6 +138,32 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
           content: `Error: Tool "${toolUse.name}" not found.`,
           isError: true,
         };
+      } else if (registration.permission === "deny") {
+        result = {
+          content: `Tool call denied: "${toolUse.name}" is not allowed.`,
+          isError: true,
+        };
+      } else if (registration.permission === "prompt") {
+        let approved = false;
+        if (promptForApproval) {
+          approved = await promptForApproval(toolUse.name, toolUse.input);
+        }
+        if (approved) {
+          try {
+            result = await registration.execute(toolUse.input);
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            result = {
+              content: `Error executing tool "${toolUse.name}": ${message}`,
+              isError: true,
+            };
+          }
+        } else {
+          result = {
+            content: `Tool call denied by user: "${toolUse.name}".`,
+            isError: true,
+          };
+        }
       } else {
         try {
           result = await registration.execute(toolUse.input);

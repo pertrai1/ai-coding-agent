@@ -48,6 +48,7 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
 }
 
 export const readFileTool: ToolRegistration = {
+  permission: "allow",
   definition: {
     name: "read_file",
     description:
