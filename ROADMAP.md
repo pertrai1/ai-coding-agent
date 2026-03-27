@@ -86,16 +86,16 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 5 - Context Window and Conversation Compression
 
-- [ ] Track prompt and completion token usage per model request.
-- [ ] Keep a running token total for the active session.
-- [ ] Define a compression threshold based on model context limits.
-- [ ] Implement a summarization routine for older conversation turns.
-- [ ] Trigger summarization before context overflow occurs.
-- [ ] Replace old turns with a summary while preserving recent turns verbatim.
-- [ ] Keep compression operations hidden from normal user output.
-- [ ] Expose a simple status command for current context usage.
-- [ ] Add a manual long-session test that forces at least one compression cycle.
-- [ ] Add a manual recall test that verifies important prior context is preserved.
+- [x] Track prompt and completion token usage per model request.
+- [x] Keep a running token total for the active session.
+- [x] Define a compression threshold based on model context limits.
+- [x] Implement a summarization routine for older conversation turns
+- [x] Trigger summarization before context overflow occurs
+- [x] Replace old turns with a summary while preserving recent turns verbatim
+- [x] Keep compression operations hidden from normal user output
+- [x] Expose a simple status command for current context usage
+- [x] Add a manual long-session test that forces at least one compression cycle
+- [x] Add a manual recall test that verifies important prior context is preserved
 
 ## Step 6 - Project Context and Config Hierarchy
 
