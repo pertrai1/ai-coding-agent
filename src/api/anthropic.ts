@@ -132,6 +132,7 @@ type CreateMessageStreamOptions = {
   system?: string;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  signal?: AbortSignal;
 };
 
 export async function createMessageStream(
@@ -144,6 +145,7 @@ export async function createMessageStream(
     system,
     maxTokens = DEFAULT_MAX_TOKENS,
     tools,
+    signal,
   } = options;
 
   if (!apiKey) {
@@ -169,6 +171,7 @@ export async function createMessageStream(
   try {
     response = await fetch(API_BASE, {
       method: "POST",
+      signal,
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": API_VERSION,
@@ -290,6 +293,7 @@ type StreamMessageOptions = {
   system?: string;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  signal?: AbortSignal;
 };
 
 export type StreamResult = {
