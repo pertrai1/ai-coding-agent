@@ -292,3 +292,129 @@ npm run dev
 **Pass criteria:** `read_file` runs without a prompt. `write_file` triggers an approval prompt. Only the mutating tool requires user interaction.
 
 ---
+
+## REPL Commands
+
+The following commands are available in the REPL:
+
+| Command | Description |
+|---------|-------------|
+| `/status` | Display current context window usage (tokens, percentage, message count) |
+| `exit` or `quit` | Exit the REPL |
+
+### `/status` Command
+
+Shows real-time context window usage:
+
+```
+Context: 12,450 / 200,000 tokens (6.2%)
+Messages: 8 turns
+Status: OK
+```
+
+When approaching the compression threshold (75%+):
+
+```
+Context: 162,500 / 200,000 tokens (81.3%)
+Messages: 34 turns
+Status: ⚠ Approaching limit - compression will trigger soon
+```
+
+---
+
+## Step 5 - Context Window and Conversation Compression
+
+### Test 5.1: Token tracking with `/status`
+
+**Goal:** Verify the `/status` command shows increasing token counts after each message.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `/status`
+3. Note the token count (should be 0 or very low)
+4. Type: `Tell me a short joke`
+5. Wait for the response
+6. Type: `/status` again
+
+**Expected:** The second `/status` shows higher token counts than the first. Both input and output tokens should have increased. The message count should be 2 (1 user + 1 assistant).
+
+**Pass criteria:** Token counts increase after each exchange. The percentage updates correctly. No errors when running `/status`.
+
+---
+
+### Test 5.2: Context compression triggers at threshold
+
+**Goal:** Verify that conversation compression occurs when approaching the context limit.
+
+**Note:** This test requires many messages to reach 80% of 200K tokens (~160K). For practical testing, you can temporarily modify the threshold in `src/context/tracker.ts` to a lower value (e.g., 0.01 for 1%) to trigger compression quickly.
+
+**Steps (with modified threshold):**
+
+1. Temporarily edit `src/context/tracker.ts`:
+   - Change `DEFAULT_COMPRESSION_THRESHOLD = 0.8` to `DEFAULT_COMPRESSION_THRESHOLD = 0.01`
+2. Start the agent
+3. Type: `/status` (should show very low usage)
+4. Type: `Hello, how are you?`
+5. Wait for response
+6. Type: `/status` — compression should have triggered (usage will drop since old messages were summarized)
+
+**Expected:** After the first message triggers the 1% threshold, compression runs. The message count may decrease (old turns replaced by summary). The assistant continues responding normally.
+
+**Pass criteria:** Compression triggers automatically. The REPL continues functioning. No error messages. Token usage resets or drops after compression.
+
+**Cleanup:** Remember to revert `DEFAULT_COMPRESSION_THRESHOLD` back to `0.8` after testing.
+
+---
+
+### Test 5.3: Recent turns preserved after compression
+
+**Goal:** Verify that the most recent conversation turns are preserved verbatim after compression.
+
+**Steps:**
+
+1. Follow Test 5.2 to trigger compression
+2. After compression occurs, ask: `What did we just discuss?`
+3. Type: `Can you repeat my last message before this one?`
+
+**Expected:** The assistant should be able to reference the recent turns (last 6 messages) that were preserved verbatim. The very last exchange before compression should be recallable.
+
+**Pass criteria:** The assistant recalls recent context accurately. The last few messages are intact.
+
+---
+
+### Test 5.4: Key context preserved in summary
+
+**Goal:** Verify that the compression summary captures important information from older turns.
+
+**Steps:**
+
+1. Start the agent
+2. Type: `Remember that my favorite programming language is TypeScript`
+3. Have a few exchanges about unrelated topics (4-5 messages)
+4. Trigger compression (via modified threshold or by filling context)
+5. After compression, ask: `What is my favorite programming language?`
+
+**Expected:** The summary should have captured the key fact about TypeScript preferences. The assistant should still know this information even though the original message was compressed.
+
+**Pass criteria:** The assistant recalls the preference stated before compression. The summary preserved the essential information.
+
+---
+
+### Test 5.5: Compression fallback on network failure
+
+**Goal:** Verify that compression falls back to truncation when the summarization API call fails.
+
+**Steps:**
+
+1. Temporarily set a low compression threshold (as in Test 5.2)
+2. Start the agent
+3. Disconnect from the internet
+4. Type a message that will trigger compression
+5. Observe the behavior
+
+**Expected:** The compression attempt fails (network error). An error message appears in stderr (not in the REPL). The system falls back to truncating old messages. The REPL continues functioning with the remaining (truncated) conversation.
+
+**Pass criteria:** No crash. The REPL stays alive. A warning may appear about compression failure. Recent turns are still preserved (truncation keeps the last N messages).
+
+---
