@@ -50,17 +50,20 @@ export class TokenTracker {
     return {
       inputTokens: this.currentContextInputTokens,
       outputTokens: this.currentContextOutputTokens,
-      combined: this.currentContextInputTokens + this.currentContextOutputTokens,
+      combined:
+        this.currentContextInputTokens + this.currentContextOutputTokens,
     };
   }
 
   getUsagePercentage(): number {
-    const combined = this.currentContextInputTokens + this.currentContextOutputTokens;
+    const combined =
+      this.currentContextInputTokens + this.currentContextOutputTokens;
     return (combined / this.contextWindowLimit) * 100;
   }
 
   needsCompression(): boolean {
-    const combined = this.currentContextInputTokens + this.currentContextOutputTokens;
+    const combined =
+      this.currentContextInputTokens + this.currentContextOutputTokens;
     const threshold = this.contextWindowLimit * this.compressionThreshold;
     return combined >= threshold;
   }
@@ -71,7 +74,8 @@ export class TokenTracker {
 
   getStats(): TokenStats {
     const sessionCombined = this.sessionInputTokens + this.sessionOutputTokens;
-    const currentContextCombined = this.currentContextInputTokens + this.currentContextOutputTokens;
+    const currentContextCombined =
+      this.currentContextInputTokens + this.currentContextOutputTokens;
     return {
       sessionInputTokens: this.sessionInputTokens,
       sessionOutputTokens: this.sessionOutputTokens,
