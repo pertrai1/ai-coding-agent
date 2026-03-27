@@ -5,6 +5,8 @@ import type {
   StreamEvent,
   ToolUseBlock,
 } from "./api/anthropic.js";
+import { compressConversation } from "./context/compression.js";
+import type { TokenTracker } from "./context/tracker.js";
 import type { ToolRegistry, ToolResult } from "./tools/index.js";
 
 type StopReason = "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | null;
@@ -90,6 +92,7 @@ export type AgentLoopOptions = {
   apiKey: string;
   system?: string;
   write: (text: string) => void;
+  tokenTracker?: TokenTracker;
   promptForApproval?: (
     toolName: string,
     toolInput: Record<string, unknown>,
@@ -97,10 +100,21 @@ export type AgentLoopOptions = {
 };
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
-  const { messages, toolRegistry, model, apiKey, system, write, promptForApproval } = options;
+  const { messages, toolRegistry, model, apiKey, system, write, tokenTracker, promptForApproval } = options;
   const toolDefinitions = toolRegistry.getDefinitions();
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
+    if (tokenTracker?.needsCompression()) {
+      await compressConversation({
+        messages,
+        model,
+        apiKey,
+        preserveTurns: 6,
+        timeoutMs: 30000,
+      });
+      tokenTracker.resetAfterCompression(messages);
+    }
+
     const accumulator = createStreamAccumulator(write);
 
     const stream = streamMessage({
@@ -111,13 +125,21 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
       tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
     });
 
-    for await (const event of stream) {
-      accumulator.process(event);
+    let streamResult = await stream.next();
+    while (!streamResult.done) {
+      accumulator.process(streamResult.value);
+      streamResult = await stream.next();
+    }
+
+    const usage = streamResult.value?.usage;
+    if (usage && tokenTracker) {
+      tokenTracker.addUsage(usage);
     }
 
     const { contentBlocks, stopReason } = accumulator.getResult();
 
     messages.push({ role: "assistant", content: contentBlocks });
+    tokenTracker?.addMessage();
 
     if (stopReason !== "tool_use") {
       return;
@@ -185,6 +207,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
     }
 
     messages.push({ role: "user", content: toolResults });
+    tokenTracker?.addMessage();
   }
 
   write("\n⚠ Warning: Maximum tool-calling iterations reached.\n");

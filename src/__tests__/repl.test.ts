@@ -32,20 +32,33 @@ describe("repl", () => {
     vi.restoreAllMocks();
   });
 
-  describe("isExitCommand", () => {
-    it.each([
-      ["exit", true],
-      ["quit", true],
-      ["EXIT", true],
-      ["Quit", true],
-      ["  exit  ", true],
-      ["hello", false],
-      ["exiting", false],
-      ["", false],
-    ])("returns %s -> %s", (input, expected) => {
-      expect(isExitCommand(input)).toBe(expected);
-    });
+describe("isExitCommand", () => {
+  it.each([
+    ["exit", true],
+    ["quit", true],
+    ["EXIT", true],
+    ["Quit", true],
+    ["  exit  ", true],
+    ["hello", false],
+    ["exiting", false],
+    ["", false],
+  ])("returns %s -> %s", (input, expected) => {
+    expect(isExitCommand(input)).toBe(expected);
   });
+});
+
+describe("isStatusCommand", () => {
+  it.each([
+    ["/status", true],
+    ["/STATUS", true],
+    ["  /status  ", true],
+    ["/stats", false],
+    ["status", false],
+    ["/help", false],
+  ])("returns %s -> %s", (input, expected) => {
+    expect(isStatusCommand(input)).toBe(expected);
+  });
+});
 
   describe("isEmptyInput", () => {
     it.each([

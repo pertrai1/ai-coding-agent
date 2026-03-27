@@ -183,3 +183,32 @@ We chose option 3. The key insight: **from the model's perspective, a denied too
 - `src/agent.ts:157-160` — user-declined denial result
 - `src/__tests__/agent.test.ts` — tests verify denial results have `is_error: true` and include the tool name
 
+---
+
+## Step 5 - Context Window and Conversation Compression
+
+### Q1: How should we approach conversation summarization for context compression?
+
+**Why it matters:** When conversation history grows toward the model's context limit, something must give. The choice of how to compress affects cost, context preservation, and implementation complexity. There's no free lunch — every option trades something off.
+
+**What we learned:** We considered three approaches:
+
+1. **Self-summarization** — Send old messages to Anthropic with "summarize this conversation" prompt. Preserves context well but costs tokens every time. If you compress 10 times in a session, that's 10 summarization calls.
+
+2. **Heuristic truncation** — Simply drop messages beyond a threshold. Zero cost, trivial to implement. But loses context entirely — the model forgets early decisions, file reads, and constraints.
+
+3. **Hybrid approach** — Keep recent N turns verbatim, summarize middle turns via API, drop oldest. Balanced: recent context stays intact (no cost), middle context gets compressed (some cost), ancient context goes away (no cost to preserve).
+
+We chose the hybrid approach. The key insight: **recency correlates with relevance**. The last 3-4 exchanges are almost always needed for the current task. Middle exchanges contain decisions that matter. Oldest exchanges are often setup that's already been acted on. By preserving recent turns, we get conversation continuity for free. By summarizing middle turns, we keep key information at a fraction of the token cost. By dropping oldest, we free space for new work.
+
+The algorithm:
+```
+Before: [turn1, turn2, ..., turn12, turn13, turn14, turn15, turn16, turn17, turn18]
+After:  [summary of turns 1-12] + [turn13, turn14, turn15, turn16, turn17, turn18]
+```
+
+**Demonstrated in:**
+- `openspec/changes/context-window-compression/design.md` — decision #3 with rationale and alternatives
+- `openspec/changes/context-window-compression/specs/context-compression/spec.md` — requirements for hybrid compression behavior
+- `src/context/compression.ts` (to be implemented) — the actual compression logic
+

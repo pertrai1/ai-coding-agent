@@ -4,6 +4,7 @@ import chalk from "chalk";
 import { AnthropicError } from "./api/anthropic.js";
 import type { Message } from "./api/anthropic.js";
 import { runAgentLoop } from "./agent.js";
+import { TokenTracker } from "./context/tracker.js";
 import { createToolRegistry } from "./tools/index.js";
 
 const SYSTEM_PROMPT =
@@ -11,6 +12,7 @@ const SYSTEM_PROMPT =
 const MODEL = "claude-sonnet-4-20250514";
 const PROMPT = "> ";
 const EXIT_COMMANDS = new Set(["exit", "quit"]);
+const STATUS_COMMAND = "/status";
 
 export function isExitCommand(input: string): boolean {
   return EXIT_COMMANDS.has(input.trim().toLowerCase());
@@ -18,6 +20,25 @@ export function isExitCommand(input: string): boolean {
 
 export function isEmptyInput(input: string): boolean {
   return input.trim() === "";
+}
+
+export function isStatusCommand(input: string): boolean {
+  return input.trim().toLowerCase() === STATUS_COMMAND;
+}
+
+function formatStatus(tracker: TokenTracker): string {
+  const stats = tracker.getStats();
+  const percentage = stats.usagePercentage.toFixed(1);
+  const warningThreshold = 75;
+  const warning = stats.usagePercentage >= warningThreshold
+    ? `\n${chalk.yellow("Status: ⚠ Approaching limit - compression will trigger soon")}`
+    : `\n${chalk.green("Status: OK")}`;
+
+  return [
+    `Context: ${stats.combinedTokens.toLocaleString()} / ${stats.contextWindowLimit.toLocaleString()} tokens (${percentage}%)`,
+    `Messages: ${stats.messageCount} turns`,
+    warning,
+  ].join("\n");
 }
 
 function isAbortError(error: unknown): boolean {
@@ -52,9 +73,10 @@ export async function startRepl(apiKey: string): Promise<void> {
   const messages: Message[] = [];
   const toolRegistry = createToolRegistry();
   const promptForApproval = createPromptForApproval(rl);
+  const tokenTracker = new TokenTracker();
 
   console.log(chalk.cyan("AI Coding Agent"));
-  console.log(chalk.dim('Type "exit" or "quit" to leave.\n'));
+  console.log(chalk.dim('Type "exit" or "quit" to leave. Type /status for context info.\n'));
 
   try {
     while (true) {
@@ -81,10 +103,16 @@ export async function startRepl(apiKey: string): Promise<void> {
         return;
       }
 
+      if (isStatusCommand(input)) {
+        console.log(formatStatus(tokenTracker));
+        continue;
+      }
+
       messages.push({
         role: "user",
         content: [{ type: "text", text: trimmed }],
       });
+      tokenTracker.addMessage();
 
       try {
         await runAgentLoop({
@@ -95,6 +123,7 @@ export async function startRepl(apiKey: string): Promise<void> {
           system: SYSTEM_PROMPT,
           write: (text) => process.stdout.write(text),
           promptForApproval,
+          tokenTracker,
         });
 
         process.stdout.write("\n");

@@ -741,3 +741,147 @@ describe("runAgentLoop", () => {
     });
   });
 });
+
+describe("token tracking", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("tracks token usage when tokenTracker is provided", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock.mockImplementation(async function* () {
+      yield {
+        type: "message_start",
+        message: {
+          id: "msg_1",
+          type: "message",
+          role: "assistant",
+          content: [],
+          model: "claude-sonnet-4-20250514",
+          stop_reason: null,
+          stop_sequence: null,
+          usage: { input_tokens: 100, output_tokens: 0 },
+        },
+      };
+      yield {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "text", text: "" },
+      };
+      yield {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "text_delta", text: "Hello" },
+      };
+      yield { type: "content_block_stop", index: 0 };
+      yield {
+        type: "message_delta",
+        delta: { stop_reason: "end_turn", stop_sequence: null },
+        usage: { output_tokens: 50 },
+      };
+      yield { type: "message_stop" };
+      return { usage: { inputTokens: 100, outputTokens: 50 } };
+    });
+
+    const { TokenTracker } = await import("../context/tracker.js");
+    const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "Hi" }] }];
+    const write = vi.fn<(text: string) => void>();
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: createToolRegistry(),
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write,
+      tokenTracker: tracker,
+    });
+
+    const totals = tracker.getTotals();
+    expect(totals.inputTokens).toBe(100);
+    expect(totals.outputTokens).toBe(50);
+    expect(totals.combined).toBe(150);
+  });
+
+  it("tracks message count", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock.mockImplementation(async function* () {
+      yield { type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", content: [], model: "claude-sonnet-4-20250514", stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 0 } } };
+      yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+      yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hi" } };
+      yield { type: "content_block_stop", index: 0 };
+      yield { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 5 } };
+      yield { type: "message_stop" };
+      return { usage: { inputTokens: 10, outputTokens: 5 } };
+    });
+
+    const { TokenTracker } = await import("../context/tracker.js");
+    const tracker = new TokenTracker();
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "Hi" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: createToolRegistry(),
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      tokenTracker: tracker,
+    });
+
+    expect(tracker.getMessageCount()).toBe(1);
+  });
+
+  it("accumulates tokens across multiple turns", async () => {
+    const streamMock = vi.mocked(streamMessage);
+    streamMock
+      .mockImplementationOnce(async function* () {
+        yield { type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", content: [], model: "claude-sonnet-4-20250514", stop_reason: null, stop_sequence: null, usage: { input_tokens: 100, output_tokens: 0 } } };
+        yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+        yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "First" } };
+        yield { type: "content_block_stop", index: 0 };
+        yield { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 50 } };
+        yield { type: "message_stop" };
+        return { usage: { inputTokens: 100, outputTokens: 50 } };
+      })
+      .mockImplementationOnce(async function* () {
+        yield { type: "message_start", message: { id: "msg_2", type: "message", role: "assistant", content: [], model: "claude-sonnet-4-20250514", stop_reason: null, stop_sequence: null, usage: { input_tokens: 200, output_tokens: 0 } } };
+        yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+        yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Second" } };
+        yield { type: "content_block_stop", index: 0 };
+        yield { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 75 } };
+        yield { type: "message_stop" };
+        return { usage: { inputTokens: 200, outputTokens: 75 } };
+      });
+
+    const { TokenTracker } = await import("../context/tracker.js");
+    const tracker = new TokenTracker();
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "Hi" }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: createToolRegistry(),
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      tokenTracker: tracker,
+    });
+
+    messages.push({ role: "user", content: [{ type: "text", text: "Again" }] });
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: createToolRegistry(),
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      tokenTracker: tracker,
+    });
+
+    const totals = tracker.getTotals();
+    expect(totals.inputTokens).toBe(300);
+    expect(totals.outputTokens).toBe(125);
+  });
+});
