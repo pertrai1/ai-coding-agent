@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { streamMessage } from "../api/anthropic.js";
-import { isEmptyInput, isExitCommand, startRepl } from "../repl.js";
+import { isEmptyInput, isExitCommand, isStatusCommand, startRepl } from "../repl.js";
 import { createInterface } from "node:readline/promises";
 
 vi.mock("../api/anthropic.js", async () => {
