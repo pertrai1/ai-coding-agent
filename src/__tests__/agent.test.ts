@@ -802,6 +802,11 @@ describe("token tracking", () => {
     expect(totals.inputTokens).toBe(100);
     expect(totals.outputTokens).toBe(50);
     expect(totals.combined).toBe(150);
+    expect(tracker.getCurrentContextTotals()).toEqual({
+      inputTokens: 100,
+      outputTokens: 50,
+      combined: 150,
+    });
   });
 
   it("tracks message count", async () => {
@@ -883,5 +888,10 @@ describe("token tracking", () => {
     const totals = tracker.getTotals();
     expect(totals.inputTokens).toBe(300);
     expect(totals.outputTokens).toBe(125);
+    expect(tracker.getCurrentContextTotals()).toEqual({
+      inputTokens: 200,
+      outputTokens: 75,
+      combined: 275,
+    });
   });
 });

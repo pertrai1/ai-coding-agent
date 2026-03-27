@@ -4,9 +4,16 @@ import { createMessageStream } from "../../api/anthropic.js";
 import type { Message } from "../../api/anthropic.js";
 import { compressConversation } from "../../context/compression.js";
 
-vi.mock("../../api/anthropic.js", () => ({
-  createMessageStream: vi.fn(),
-}));
+vi.mock("../../api/anthropic.js", async () => {
+  const actual = await vi.importActual<typeof import("../../api/anthropic.js")>(
+    "../../api/anthropic.js",
+  );
+
+  return {
+    ...actual,
+    createMessageStream: vi.fn(),
+  };
+});
 
 function createMockResponse(text: string): Response {
   const encoder = new TextEncoder();
@@ -23,6 +30,26 @@ function createMockResponse(text: string): Response {
       for (const event of events) {
         controller.enqueue(encoder.encode(event));
       }
+      controller.close();
+    },
+  });
+
+  return { body, ok: true } as Response;
+}
+
+function createSplitChunkResponse(text: string): Response {
+  const encoder = new TextEncoder();
+  const events = [
+    `event: content_block_delta\ndata: ${JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text } })}\n\n`,
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+  ];
+  const payload = events.join("");
+
+  const body = new ReadableStream({
+    start(controller) {
+      const splitIndex = Math.floor(payload.length / 2);
+      controller.enqueue(encoder.encode(payload.slice(0, splitIndex)));
+      controller.enqueue(encoder.encode(payload.slice(splitIndex)));
       controller.close();
     },
   });
@@ -177,5 +204,39 @@ describe("compressConversation", () => {
 
     expect(summarizationText).toContain("[Tool: read_file");
     expect(summarizationText).toContain("[Tool Result:");
+  });
+
+  it("passes an AbortSignal to summarization request", async () => {
+    vi.mocked(createMessageStream).mockResolvedValue(createMockResponse("Summary"));
+    const messages = createMessages(8);
+
+    await compressConversation({
+      messages,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      preserveTurns: 6,
+      timeoutMs: 30000,
+    });
+
+    const callArgs = vi.mocked(createMessageStream).mock.calls[0][0];
+    expect(callArgs.signal).toBeDefined();
+  });
+
+  it("handles split SSE chunks while building summary text", async () => {
+    vi.mocked(createMessageStream).mockResolvedValue(createSplitChunkResponse("Chunked summary"));
+    const messages = createMessages(8);
+
+    await compressConversation({
+      messages,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      preserveTurns: 6,
+      timeoutMs: 30000,
+    });
+
+    expect(messages[0].content[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Chunked summary"),
+    });
   });
 });

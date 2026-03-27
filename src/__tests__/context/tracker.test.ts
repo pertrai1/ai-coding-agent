@@ -3,142 +3,99 @@ import { describe, expect, it } from "vitest";
 import { TokenTracker } from "../../context/tracker.js";
 
 describe("TokenTracker", () => {
-  describe("addUsage", () => {
-    it("accumulates input and output tokens", () => {
-      const tracker = new TokenTracker();
+  it("accumulates session totals", () => {
+    const tracker = new TokenTracker();
 
-      tracker.addUsage({ inputTokens: 100, outputTokens: 50 });
-      tracker.addUsage({ inputTokens: 200, outputTokens: 75 });
+    tracker.addUsage({ inputTokens: 100, outputTokens: 50 });
+    tracker.addUsage({ inputTokens: 200, outputTokens: 75 });
 
-      const totals = tracker.getTotals();
-      expect(totals.inputTokens).toBe(300);
-      expect(totals.outputTokens).toBe(125);
-      expect(totals.combined).toBe(425);
-    });
-
-    it("starts at zero tokens", () => {
-      const tracker = new TokenTracker();
-
-      const totals = tracker.getTotals();
-      expect(totals.inputTokens).toBe(0);
-      expect(totals.outputTokens).toBe(0);
-      expect(totals.combined).toBe(0);
+    expect(tracker.getTotals()).toEqual({
+      inputTokens: 300,
+      outputTokens: 125,
+      combined: 425,
     });
   });
 
-  describe("getUsagePercentage", () => {
-    it("calculates percentage of context window used", () => {
-      const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
+  it("tracks current context independently from session totals", () => {
+    const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
 
-      tracker.addUsage({ inputTokens: 25_000, outputTokens: 25_000 });
+    tracker.addUsage({ inputTokens: 10_000, outputTokens: 2_000 });
+    tracker.setCurrentContextUsage({ inputTokens: 10_000, outputTokens: 2_000 });
 
-      expect(tracker.getUsagePercentage()).toBe(50);
+    tracker.addUsage({ inputTokens: 12_000, outputTokens: 3_000 });
+    tracker.setCurrentContextUsage({ inputTokens: 12_000, outputTokens: 3_000 });
+
+    expect(tracker.getTotals()).toEqual({
+      inputTokens: 22_000,
+      outputTokens: 5_000,
+      combined: 27_000,
     });
-
-    it("returns 0 when no tokens used", () => {
-      const tracker = new TokenTracker();
-
-      expect(tracker.getUsagePercentage()).toBe(0);
-    });
-
-    it("uses default 200K context window", () => {
-      const tracker = new TokenTracker();
-
-      tracker.addUsage({ inputTokens: 100_000, outputTokens: 0 });
-
-      expect(tracker.getUsagePercentage()).toBe(50);
+    expect(tracker.getCurrentContextTotals()).toEqual({
+      inputTokens: 12_000,
+      outputTokens: 3_000,
+      combined: 15_000,
     });
   });
 
-  describe("needsCompression", () => {
-    it("returns true when at 80% threshold", () => {
-      const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
+  it("uses current context for compression threshold", () => {
+    const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
 
-      tracker.addUsage({ inputTokens: 80_000, outputTokens: 0 });
+    tracker.addUsage({ inputTokens: 90_000, outputTokens: 0 });
+    tracker.setCurrentContextUsage({ inputTokens: 79_000, outputTokens: 0 });
 
-      expect(tracker.needsCompression()).toBe(true);
-    });
+    expect(tracker.needsCompression()).toBe(false);
 
-    it("returns true when above threshold", () => {
-      const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
+    tracker.setCurrentContextUsage({ inputTokens: 80_000, outputTokens: 0 });
 
-      tracker.addUsage({ inputTokens: 90_000, outputTokens: 0 });
-
-      expect(tracker.needsCompression()).toBe(true);
-    });
-
-    it("returns false when below threshold", () => {
-      const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
-
-      tracker.addUsage({ inputTokens: 79_999, outputTokens: 0 });
-
-      expect(tracker.needsCompression()).toBe(false);
-    });
-
-    it("uses default 80% threshold with 200K limit", () => {
-      const tracker = new TokenTracker();
-
-      tracker.addUsage({ inputTokens: 159_999, outputTokens: 0 });
-
-      expect(tracker.needsCompression()).toBe(false);
-
-      tracker.addUsage({ inputTokens: 1, outputTokens: 0 });
-
-      expect(tracker.needsCompression()).toBe(true);
-    });
+    expect(tracker.needsCompression()).toBe(true);
   });
 
-  describe("getMessageCount", () => {
-    it("tracks message count", () => {
-      const tracker = new TokenTracker();
+  it("resets current context after compression but preserves session totals", () => {
+    const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
 
-      tracker.addMessage();
-      tracker.addMessage();
-      tracker.addMessage();
+    tracker.addUsage({ inputTokens: 85_000, outputTokens: 5_000 });
+    tracker.setCurrentContextUsage({ inputTokens: 85_000, outputTokens: 5_000 });
+    tracker.addMessage();
+    tracker.addMessage();
+    tracker.addMessage();
 
-      expect(tracker.getMessageCount()).toBe(3);
+    expect(tracker.needsCompression()).toBe(true);
+
+    tracker.resetAfterCompression([{ role: "user", content: [{ type: "text", text: "summary" }] }]);
+
+    expect(tracker.needsCompression()).toBe(false);
+    expect(tracker.getCurrentContextTotals()).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      combined: 0,
     });
-
-    it("starts at zero", () => {
-      const tracker = new TokenTracker();
-
-      expect(tracker.getMessageCount()).toBe(0);
+    expect(tracker.getTotals()).toEqual({
+      inputTokens: 85_000,
+      outputTokens: 5_000,
+      combined: 90_000,
     });
+    expect(tracker.getMessageCount()).toBe(1);
   });
 
-  describe("getStats", () => {
-    it("returns complete token statistics", () => {
-      const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
+  it("returns detailed stats for status command", () => {
+    const tracker = new TokenTracker({ contextWindowLimit: 100_000, compressionThreshold: 0.8 });
 
-      tracker.addUsage({ inputTokens: 30_000, outputTokens: 20_000 });
-      tracker.addMessage();
-      tracker.addMessage();
+    tracker.addUsage({ inputTokens: 30_000, outputTokens: 8_000 });
+    tracker.addUsage({ inputTokens: 20_000, outputTokens: 2_000 });
+    tracker.setCurrentContextUsage({ inputTokens: 20_000, outputTokens: 2_000 });
+    tracker.addMessage();
+    tracker.addMessage();
 
-      const stats = tracker.getStats();
-
-      expect(stats).toEqual({
-        totalInputTokens: 30_000,
-        totalOutputTokens: 20_000,
-        combinedTokens: 50_000,
-        usagePercentage: 50,
-        messageCount: 2,
-        contextWindowLimit: 100_000,
-      });
-    });
-  });
-
-  describe("resetAfterCompression", () => {
-    it("updates message count after compression", () => {
-      const tracker = new TokenTracker();
-      tracker.addMessage();
-      tracker.addMessage();
-      tracker.addMessage();
-
-      expect(tracker.getMessageCount()).toBe(3);
-
-      tracker.resetAfterCompression([{ role: "user", content: [{ type: "text", text: "summary" }] }]);
-
-      expect(tracker.getMessageCount()).toBe(1);
+    expect(tracker.getStats()).toEqual({
+      sessionInputTokens: 50_000,
+      sessionOutputTokens: 10_000,
+      sessionCombinedTokens: 60_000,
+      currentContextInputTokens: 20_000,
+      currentContextOutputTokens: 2_000,
+      currentContextCombinedTokens: 22_000,
+      usagePercentage: 22,
+      messageCount: 2,
+      contextWindowLimit: 100_000,
     });
   });
 });
