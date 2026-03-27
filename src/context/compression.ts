@@ -1,5 +1,5 @@
 import type { ContentBlock, Message } from "../api/anthropic.js";
-import { createMessageStream } from "../api/anthropic.js";
+import { createMessageStream, parseSSEStream } from "../api/anthropic.js";
 import type { CompressionOptions, CompressionResult } from "./types.js";
 
 const DEFAULT_PRESERVE_TURNS = 6;
@@ -61,44 +61,34 @@ async function summarizeMessages(
       apiKey,
       system: SUMMARIZATION_SYSTEM_PROMPT,
       maxTokens: 2000,
+      signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.body) {
       throw new Error("No response body");
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
     let summaryText = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    for await (const sse of parseSSEStream(response.body)) {
+      if (sse.event === "ping" || sse.event === "error") {
+        continue;
+      }
 
-      const chunk = decoder.decode(value, { stream: true });
+      try {
+        const data = JSON.parse(sse.data) as {
+          type: string;
+          delta?: { type: string; text?: string };
+        };
 
-      const lines = chunk.split("\n");
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          try {
-            const data = JSON.parse(line.slice(6)) as {
-              type: string;
-              delta?: { type: string; text?: string };
-            };
-
-            if (
-              data.type === "content_block_delta" &&
-              data.delta?.type === "text_delta" &&
-              data.delta.text
-            ) {
-              summaryText += data.delta.text;
-            }
-          } catch {
-            // Skip malformed JSON
-          }
+        if (
+          data.type === "content_block_delta" &&
+          data.delta?.type === "text_delta" &&
+          data.delta.text
+        ) {
+          summaryText += data.delta.text;
         }
+      } catch {
       }
     }
 
