@@ -35,7 +35,8 @@ function formatStatus(tracker: TokenTracker): string {
     : `\n${chalk.green("Status: OK")}`;
 
   return [
-    `Context: ${stats.combinedTokens.toLocaleString()} / ${stats.contextWindowLimit.toLocaleString()} tokens (${percentage}%)`,
+    `Context: ${stats.currentContextCombinedTokens.toLocaleString()} / ${stats.contextWindowLimit.toLocaleString()} tokens (${percentage}%)`,
+    `Session total: ${stats.sessionCombinedTokens.toLocaleString()} tokens`,
     `Messages: ${stats.messageCount} turns`,
     warning,
   ].join("\n");

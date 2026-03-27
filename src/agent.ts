@@ -134,6 +134,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
     const usage = streamResult.value?.usage;
     if (usage && tokenTracker) {
       tokenTracker.addUsage(usage);
+      tokenTracker.setCurrentContextUsage(usage);
     }
 
     const { contentBlocks, stopReason } = accumulator.getResult();
