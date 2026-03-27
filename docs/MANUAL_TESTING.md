@@ -308,6 +308,7 @@ Shows real-time context window usage:
 
 ```
 Context: 12,450 / 200,000 tokens (6.2%)
+Session total: 54,120 tokens
 Messages: 8 turns
 Status: OK
 ```
@@ -316,6 +317,7 @@ When approaching the compression threshold (75%+):
 
 ```
 Context: 162,500 / 200,000 tokens (81.3%)
+Session total: 183,900 tokens
 Messages: 34 turns
 Status: ⚠ Approaching limit - compression will trigger soon
 ```
@@ -337,9 +339,9 @@ Status: ⚠ Approaching limit - compression will trigger soon
 5. Wait for the response
 6. Type: `/status` again
 
-**Expected:** The second `/status` shows higher token counts than the first. Both input and output tokens should have increased. The message count should be 2 (1 user + 1 assistant).
+**Expected:** The second `/status` shows higher context and session totals than the first. The message count should be 2 (1 user + 1 assistant).
 
-**Pass criteria:** Token counts increase after each exchange. The percentage updates correctly. No errors when running `/status`.
+**Pass criteria:** Session total increases after each exchange. Context usage and percentage update correctly. No errors when running `/status`.
 
 ---
 
@@ -359,7 +361,7 @@ Status: ⚠ Approaching limit - compression will trigger soon
 5. Wait for response
 6. Type: `/status` — compression should have triggered (usage will drop since old messages were summarized)
 
-**Expected:** After the first message triggers the 1% threshold, compression runs. The message count may decrease (old turns replaced by summary). The assistant continues responding normally.
+**Expected:** After the first message triggers the 1% threshold, compression runs. The message count may decrease (old turns replaced by summary). Current context usage should reset lower after compression, while session total should continue increasing over time. The assistant continues responding normally.
 
 **Pass criteria:** Compression triggers automatically. The REPL continues functioning. No error messages. Token usage resets or drops after compression.
 
