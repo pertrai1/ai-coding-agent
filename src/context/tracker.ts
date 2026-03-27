@@ -5,8 +5,10 @@ const DEFAULT_CONTEXT_WINDOW_LIMIT = 200_000;
 const DEFAULT_COMPRESSION_THRESHOLD = 0.8;
 
 export class TokenTracker {
-  private totalInputTokens = 0;
-  private totalOutputTokens = 0;
+  private sessionInputTokens = 0;
+  private sessionOutputTokens = 0;
+  private currentContextInputTokens = 0;
+  private currentContextOutputTokens = 0;
   private readonly contextWindowLimit: number;
   private readonly compressionThreshold: number;
   private messageCount = 0;
@@ -19,8 +21,13 @@ export class TokenTracker {
   }
 
   addUsage(usage: TokenUsage): void {
-    this.totalInputTokens += usage.inputTokens;
-    this.totalOutputTokens += usage.outputTokens;
+    this.sessionInputTokens += usage.inputTokens;
+    this.sessionOutputTokens += usage.outputTokens;
+  }
+
+  setCurrentContextUsage(usage: TokenUsage): void {
+    this.currentContextInputTokens = usage.inputTokens;
+    this.currentContextOutputTokens = usage.outputTokens;
   }
 
   addMessage(): void {
@@ -29,19 +36,31 @@ export class TokenTracker {
 
   getTotals(): { inputTokens: number; outputTokens: number; combined: number } {
     return {
-      inputTokens: this.totalInputTokens,
-      outputTokens: this.totalOutputTokens,
-      combined: this.totalInputTokens + this.totalOutputTokens,
+      inputTokens: this.sessionInputTokens,
+      outputTokens: this.sessionOutputTokens,
+      combined: this.sessionInputTokens + this.sessionOutputTokens,
+    };
+  }
+
+  getCurrentContextTotals(): {
+    inputTokens: number;
+    outputTokens: number;
+    combined: number;
+  } {
+    return {
+      inputTokens: this.currentContextInputTokens,
+      outputTokens: this.currentContextOutputTokens,
+      combined: this.currentContextInputTokens + this.currentContextOutputTokens,
     };
   }
 
   getUsagePercentage(): number {
-    const combined = this.totalInputTokens + this.totalOutputTokens;
+    const combined = this.currentContextInputTokens + this.currentContextOutputTokens;
     return (combined / this.contextWindowLimit) * 100;
   }
 
   needsCompression(): boolean {
-    const combined = this.totalInputTokens + this.totalOutputTokens;
+    const combined = this.currentContextInputTokens + this.currentContextOutputTokens;
     const threshold = this.contextWindowLimit * this.compressionThreshold;
     return combined >= threshold;
   }
@@ -51,12 +70,16 @@ export class TokenTracker {
   }
 
   getStats(): TokenStats {
-    const combined = this.totalInputTokens + this.totalOutputTokens;
+    const sessionCombined = this.sessionInputTokens + this.sessionOutputTokens;
+    const currentContextCombined = this.currentContextInputTokens + this.currentContextOutputTokens;
     return {
-      totalInputTokens: this.totalInputTokens,
-      totalOutputTokens: this.totalOutputTokens,
-      combinedTokens: combined,
-      usagePercentage: (combined / this.contextWindowLimit) * 100,
+      sessionInputTokens: this.sessionInputTokens,
+      sessionOutputTokens: this.sessionOutputTokens,
+      sessionCombinedTokens: sessionCombined,
+      currentContextInputTokens: this.currentContextInputTokens,
+      currentContextOutputTokens: this.currentContextOutputTokens,
+      currentContextCombinedTokens: currentContextCombined,
+      usagePercentage: (currentContextCombined / this.contextWindowLimit) * 100,
       messageCount: this.messageCount,
       contextWindowLimit: this.contextWindowLimit,
     };
@@ -64,5 +87,7 @@ export class TokenTracker {
 
   resetAfterCompression(messagesAfter: Message[]): void {
     this.messageCount = messagesAfter.length;
+    this.currentContextInputTokens = 0;
+    this.currentContextOutputTokens = 0;
   }
 }

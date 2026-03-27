@@ -18,9 +18,12 @@ export type CompressionResult = {
 };
 
 export type TokenStats = {
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  combinedTokens: number;
+  sessionInputTokens: number;
+  sessionOutputTokens: number;
+  sessionCombinedTokens: number;
+  currentContextInputTokens: number;
+  currentContextOutputTokens: number;
+  currentContextCombinedTokens: number;
   usagePercentage: number;
   messageCount: number;
   contextWindowLimit: number;
