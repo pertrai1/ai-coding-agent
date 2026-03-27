@@ -73,6 +73,27 @@ describe("isStatusCommand", () => {
     });
   });
 
+  describe("status command", () => {
+    it("renders context and session totals without calling the API", async () => {
+      const question = vi.fn<(prompt: string) => Promise<string>>()
+        .mockResolvedValueOnce("/status")
+        .mockResolvedValueOnce("exit");
+
+      vi.mocked(createInterface).mockReturnValue({
+        question,
+        close: vi.fn(),
+      } as never);
+
+      const streamMock = vi.mocked(streamMessage);
+
+      await startRepl("test-key");
+
+      expect(streamMock).not.toHaveBeenCalled();
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining("Context:"));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining("Session total:"));
+    });
+  });
+
   describe("conversation history", () => {
     it("appends user message before API call", async () => {
       const question = vi.fn<(prompt: string) => Promise<string>>()
