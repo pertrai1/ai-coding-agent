@@ -55,7 +55,7 @@ The CLI SHALL read `ANTHROPIC_API_KEY` from `process.env` at startup. When the d
 - **THEN** the CLI SHALL print the version and exit with code 0 without error
 
 ### Requirement: CLI entrypoint with commander
-The project SHALL have a `src/cli.ts` entrypoint that uses `commander` to define the CLI program with `--help` and `--version` flags. The default action SHALL load config and project context, then launch the interactive REPL chat loop with the resolved configuration.
+The project SHALL have a `src/cli.ts` entrypoint that uses `commander` to define the CLI program with `--help` and `--version` flags. The default action SHALL load config and project context, optionally resume a saved session when `--resume <sessionId>` is provided, then launch the interactive REPL chat loop with the resolved configuration.
 
 #### Scenario: --help flag prints usage
 - **WHEN** a user runs the CLI with `--help`
@@ -65,12 +65,25 @@ The project SHALL have a `src/cli.ts` entrypoint that uses `commander` to define
 - **WHEN** a user runs the CLI with `--version`
 - **THEN** the CLI prints the version from `package.json` to stdout and exits with code 0
 
-#### Scenario: Default command loads config then launches REPL
+#### Scenario: Default command starts a fresh session
 - **WHEN** a user runs the CLI with no arguments
 - **AND** `ANTHROPIC_API_KEY` is set in the environment
 - **THEN** the CLI SHALL load config from all three scopes
 - **AND** load `AGENTS.md` from the current working directory
-- **AND** pass the resolved config to the REPL startup function
+- **AND** start a fresh REPL session
+
+#### Scenario: Default command resumes a saved session
+- **WHEN** a user runs the CLI with `--resume session_abc`
+- **AND** `ANTHROPIC_API_KEY` is set in the environment
+- **THEN** the CLI SHALL load config from all three scopes
+- **AND** load `AGENTS.md` from the current working directory
+- **AND** pass `session_abc` into REPL startup as a resume target
+
+#### Scenario: Invalid resume target stops before REPL launch
+- **WHEN** a user runs the CLI with `--resume session_missing`
+- **AND** no saved transcript exists for that identifier
+- **THEN** the CLI SHALL print an error
+- **AND** exit without entering the REPL
 
 ### Requirement: NPM scripts for development workflow
 The `package.json` SHALL include the following scripts: `dev` (run with watch/reload), `build` (compile TypeScript), `typecheck` (type-check without emitting), and `test` (run unit tests).
