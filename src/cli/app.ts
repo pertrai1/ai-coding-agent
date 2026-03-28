@@ -8,7 +8,11 @@ type RunCliDependencies = {
   assertResumeTarget: (projectRoot: string, sessionId: string) => Promise<void>;
   startRepl: (
     apiKey: string,
-    config: Config & { projectInstructions?: string | null; resumeSessionId?: string },
+    config: Config & {
+      projectInstructions?: string | null;
+      projectRoot?: string;
+      resumeSessionId?: string;
+    },
   ) => Promise<void>;
   writeError: (message: string) => void;
   exit: (code: number) => void;
@@ -61,6 +65,7 @@ export async function runCli(args: string[], dependencies: RunCliDependencies): 
   await startRepl(apiKey, {
     ...config,
     projectInstructions,
+    projectRoot: cwd,
     resumeSessionId,
   });
 }

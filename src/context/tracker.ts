@@ -34,6 +34,14 @@ export class TokenTracker {
     this.messageCount += 1;
   }
 
+  hydrateSession(usage: TokenUsage, messageCount: number): void {
+    this.sessionInputTokens = usage.inputTokens;
+    this.sessionOutputTokens = usage.outputTokens;
+    this.currentContextInputTokens = usage.inputTokens;
+    this.currentContextOutputTokens = usage.outputTokens;
+    this.messageCount = messageCount;
+  }
+
   getTotals(): { inputTokens: number; outputTokens: number; combined: number } {
     return {
       inputTokens: this.sessionInputTokens,

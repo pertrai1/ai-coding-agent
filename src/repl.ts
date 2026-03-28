@@ -7,6 +7,17 @@ import { runAgentLoop } from "./agent.js";
 import { assembleSystemPrompt } from "./config/context.js";
 import type { ResolvedConfig } from "./config/types.js";
 import { TokenTracker } from "./context/tracker.js";
+import { loadMemoryBootstrap, remember, recall, forget } from "./persistence/memory.js";
+import {
+  createSessionId,
+  loadFreshSessionBootstrap,
+  loadSessionForResume,
+  persistCompletedSession,
+  type SessionSummary,
+  type SessionTranscript,
+} from "./persistence/sessions.js";
+import { buildSessionBootstrap } from "./repl/bootstrap.js";
+import { handleSlashCommand } from "./repl/commands.js";
 import { createToolRegistry } from "./tools/index.js";
 
 const BASE_SYSTEM_PROMPT =
@@ -26,22 +37,6 @@ export function isEmptyInput(input: string): boolean {
 
 export function isStatusCommand(input: string): boolean {
   return input.trim().toLowerCase() === STATUS_COMMAND;
-}
-
-function formatStatus(tracker: TokenTracker): string {
-  const stats = tracker.getStats();
-  const percentage = stats.usagePercentage.toFixed(1);
-  const warningThreshold = 75;
-  const warning = stats.usagePercentage >= warningThreshold
-    ? `\n${chalk.yellow("Status: ⚠ Approaching limit - compression will trigger soon")}`
-    : `\n${chalk.green("Status: OK")}`;
-
-  return [
-    `Context: ${stats.currentContextCombinedTokens.toLocaleString()} / ${stats.contextWindowLimit.toLocaleString()} tokens (${percentage}%)`,
-    `Session total: ${stats.sessionCombinedTokens.toLocaleString()} tokens`,
-    `Messages: ${stats.messageCount} turns`,
-    warning,
-  ].join("\n");
 }
 
 function isAbortError(error: unknown): boolean {
@@ -73,16 +68,51 @@ function createPromptForApproval(
 
 export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const messages: Message[] = [];
   const toolRegistry = createToolRegistry(config.permissions);
   const promptForApproval = createPromptForApproval(rl);
   const tokenTracker = new TokenTracker();
   const model = config.model ?? DEFAULT_MODEL;
+  const projectRoot = config.projectRoot;
   const systemPrompt = assembleSystemPrompt(
     BASE_SYSTEM_PROMPT,
     config.projectInstructions ?? null,
     config.systemPromptExtra,
   );
+  const bootstrap = projectRoot
+    ? await buildSessionBootstrap(
+      config.resumeSessionId
+        ? {
+          mode: "resume",
+          projectRoot,
+          sessionId: config.resumeSessionId,
+          loadSessionForResume,
+        }
+        : {
+          mode: "fresh",
+          projectRoot,
+          loadDurableMemories: loadMemoryBootstrap,
+          loadRecentSessionSummaries: loadFreshSessionBootstrap,
+        },
+    )
+    : {
+      mode: "fresh" as const,
+      messages: [] as Message[],
+      durableMemories: [],
+      sessionSummaries: [],
+    };
+  const messages: Message[] = [...bootstrap.messages];
+  const bootstrapMessageCount = bootstrap.mode === "fresh" ? bootstrap.messages.length : 0;
+  const sessionId = bootstrap.mode === "resume" ? bootstrap.sessionId : createSessionId();
+  const sessionCreatedAt =
+    bootstrap.mode === "resume" ? bootstrap.transcript.createdAt : new Date().toISOString();
+  let shouldPersistSession = bootstrap.mode === "resume" && bootstrap.transcript.messages.length > 0;
+
+  if (bootstrap.mode === "resume") {
+    tokenTracker.hydrateSession(
+      bootstrap.transcript.tokenUsage,
+      bootstrap.transcript.messages.length,
+    );
+  }
 
   console.log(chalk.cyan("AI Coding Agent"));
   console.log(chalk.dim('Type "exit" or "quit" to leave. Type /status for context info.\n'));
@@ -112,8 +142,14 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
         return;
       }
 
-      if (isStatusCommand(input)) {
-        console.log(formatStatus(tokenTracker));
+      if (await handleSlashCommand(input, {
+        projectRoot: projectRoot ?? process.cwd(),
+        tracker: tokenTracker,
+        writeLine: (line) => console.log(line),
+        remember,
+        recall,
+        forget,
+      })) {
         continue;
       }
 
@@ -122,6 +158,7 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
         content: [{ type: "text", text: trimmed }],
       });
       tokenTracker.addMessage();
+      shouldPersistSession = true;
 
       try {
         await runAgentLoop({
@@ -159,5 +196,53 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
     }
   } finally {
     rl.close();
+
+    if (projectRoot && shouldPersistSession) {
+      const transcriptMessages = messages.slice(bootstrapMessageCount) as SessionTranscript["messages"];
+
+      if (transcriptMessages.length > 0) {
+        const totals = tokenTracker.getTotals();
+        await persistCompletedSession(projectRoot, {
+          transcript: {
+            sessionId,
+            createdAt: sessionCreatedAt,
+            updatedAt: new Date().toISOString(),
+            model,
+            messages: transcriptMessages,
+            tokenUsage: {
+              inputTokens: totals.inputTokens,
+              outputTokens: totals.outputTokens,
+            },
+          },
+          summarizeSession: async (transcript) => summarizeSessionTranscript(transcript),
+        });
+      }
+    }
   }
+}
+
+async function summarizeSessionTranscript(
+  transcript: SessionTranscript,
+): Promise<SessionSummary> {
+  const firstUserText = transcript.messages
+    .find((message) => message.role === "user")
+    ?.content.map((block) => block.text).join(" ");
+  const lastAssistantText = [...transcript.messages]
+    .reverse()
+    .find((message) => message.role === "assistant")
+    ?.content.map((block) => block.text).join(" ");
+
+  const summaryParts = [
+    firstUserText ? `Started with: ${firstUserText}` : null,
+    lastAssistantText ? `Latest assistant response: ${lastAssistantText}` : null,
+  ].filter((part): part is string => part !== null);
+
+  return {
+    sessionId: transcript.sessionId,
+    completedAt: transcript.updatedAt,
+    summaryText:
+      summaryParts.length > 0
+        ? summaryParts.join(" ")
+        : `Session ${transcript.sessionId} completed with ${transcript.messages.length} messages.`,
+  };
 }

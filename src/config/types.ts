@@ -8,4 +8,6 @@ export type Config = {
 
 export type ResolvedConfig = Config & {
   projectInstructions?: string | null;
+  projectRoot?: string;
+  resumeSessionId?: string;
 };

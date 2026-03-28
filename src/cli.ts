@@ -20,21 +20,29 @@ const metadata = readPackageMetadata();
 const program = new Command();
 
 program.name(metadata.name).description(metadata.description).version(metadata.version);
+program.option("--resume <sessionId>", "Resume a saved session by identifier");
 
-program.action(async () => {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+program.action(async (_options, command) => {
+  const parsed = command.opts() as { resume?: string };
+  const args = parsed.resume ? ["--resume", parsed.resume] : [];
 
-  if (!apiKey) {
-    console.error(chalk.red("Error: ANTHROPIC_API_KEY is not set. Set it in your environment or .env file."));
-    process.exit(1);
-  }
-
+  const { runCli } = await import("./cli/app.js");
   const { loadConfig, loadProjectInstructions } = await import("./config/index.js");
-  const config = loadConfig();
-  const projectInstructions = loadProjectInstructions(process.cwd());
-
+  const { loadSessionForResume } = await import("./persistence/sessions.js");
   const { startRepl } = await import("./repl.js");
-  await startRepl(apiKey, { ...config, projectInstructions });
+
+  await runCli(args, {
+    cwd: process.cwd(),
+    env: process.env,
+    loadConfig,
+    loadProjectInstructions,
+    assertResumeTarget: async (projectRoot, sessionId) => {
+      await loadSessionForResume(projectRoot, sessionId);
+    },
+    startRepl,
+    writeError: (message) => console.error(chalk.red(message)),
+    exit: (code) => process.exit(code),
+  });
 });
 
 program.parse();
