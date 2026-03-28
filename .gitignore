@@ -59,3 +59,7 @@ evaluations/results/
 
 # Claude
 .claude/
+
+# Agent persistence artifacts
+.ai-agent/memory/
+.ai-agent/sessions/
