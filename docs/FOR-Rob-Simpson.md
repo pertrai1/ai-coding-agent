@@ -227,3 +227,56 @@ Our project stays lightweight and easier to maintain by using the built-in Node 
 
 Finally, we think about the user experience for the AI. We provide clear, structured feedback for every tool call. If a search finds no results, we tell the agent "No matches found." The AI understands exactly what happened and can decide what to do next.
 
+# Step 7: Memory That Lasts Longer Than the Terminal Window
+
+Step 7 is where the agent stops being a goldfish. Up to now, every session lived and died inside one Node process. That works for a demo, but it is a terrible fit for real project work because the moment you close the terminal, the agent forgets your conventions, your recent progress, and the exact thread you were in. This phase fixes that by adding two separate kinds of persistence: durable memory and resumable session history.
+
+## Technical Architecture
+
+The core architectural move is separation of concerns. We now keep long-term project facts in one place and full chat transcripts in another.
+
+`src/persistence/memory.ts:63-180` owns durable memory. It creates `.ai-agent/memory/index.json` plus one JSON file per memory entry in `.ai-agent/memory/entries/`. That means the index is optimized for lookup while each entry remains inspectable on disk.
+
+`src/persistence/sessions.ts:77-137` owns session history. It writes a lossless transcript to `.ai-agent/sessions/<sessionId>.json` and a lighter summary to `.ai-agent/sessions/<sessionId>.summary.json`. That split is the key idea of the whole phase. Resume needs exact history. Fresh sessions need cheap context.
+
+The REPL now has a bootstrap stage before the interactive loop even starts. `src/repl/bootstrap.ts:69-113` decides whether we are in a fresh session or a resumed one. Fresh sessions get a hidden bootstrap message that contains durable memories and recent session summaries. Resumed sessions get the full saved transcript back.
+
+`src/repl.ts:69-221` stitches everything together. It loads bootstrap state, handles `/remember`, `/recall`, and `/forget` internally, rehydrates token counts on resume, and persists the session again on exit.
+
+## Codebase Structure
+
+This phase added a few new seams that are worth remembering:
+
+* `src/persistence/memory.ts`: durable memory store and index-based lookup
+* `src/persistence/sessions.ts`: session transcript and summary persistence
+* `src/repl/commands.ts`: slash-command router for status and memory operations
+* `src/repl/bootstrap.ts`: fresh-session vs resumed-session bootstrap logic
+* `src/cli/app.ts`: testable CLI startup wrapper, separate from the terminal entrypoint
+
+That structure is not accidental. We deliberately refused to bury persistence logic directly inside `src/repl.ts`. Good engineers treat "filesystem persistence," "session boot logic," and "terminal I/O" as different jobs because they change for different reasons.
+
+## Technologies and Why
+
+We stayed simple on purpose.
+
+We used plain JSON files instead of SQLite or a vector database. That is the right call here. You can open the files yourself, debug them with `cat`, and reason about the system without adding another service or binary.
+
+We used token-overlap matching for memory recall in `src/persistence/memory.ts:36-45` and `src/persistence/memory.ts:122-160`. Fancy retrieval systems are tempting, but premature cleverness is how small tools become fragile science projects. The simple approach is good enough for this phase and keeps the behavior explainable.
+
+We kept memory operations out of the model tool catalog. Instead, `src/repl/commands.ts:34-80` handles `/remember`, `/recall`, and `/forget` as explicit user commands. That is a product decision disguised as an implementation detail. It keeps the human in charge of what becomes durable.
+
+## Lessons Learned
+
+The biggest lesson is that "stored on disk" is not a single concept. A transcript is not memory. A summary is not a transcript. If you collapse those ideas together, the UX becomes mushy and the deletion rules become dangerous.
+
+Another lesson is that lifecycle boundaries matter. Resume happens at CLI startup in `src/cli.ts:23-45`, not halfway through a running REPL. That avoids a whole class of state bugs where you would otherwise be swapping history, token counts, and session ids mid-flight.
+
+There is also a subtle practical lesson here: generated agent artifacts should not quietly creep into git. That is why we added `.ai-agent/memory/` and `.ai-agent/sessions/` to `.gitignore`. Small hygiene decisions like that save you from noisy diffs later.
+
+## How Good Engineers Think
+
+Good engineers do not just ask, "Can I persist this?" They ask, "What kind of thing is this, and what lifecycle should it have?" That question gave us the whole phase.
+
+Durable memories are curated facts. Session transcripts are exact conversation state. Session summaries are compressed breadcrumbs for future work. Each one exists because it serves a different operational need.
+
+This is also a nice example of test-driven architecture. We wrote one failing anchor test for every Step 7 spec scenario first. That forced the implementation to grow along stable seams instead of becoming one giant `repl.ts` blob with filesystem calls sprinkled everywhere.

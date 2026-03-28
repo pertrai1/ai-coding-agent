@@ -232,6 +232,8 @@ That separation keeps the UX honest. `/forget` removes a remembered fact, not an
 - `openspec/changes/persistent-memory-and-session-history/design.md:137-163` — transcript and summary artifacts kept separate for different jobs
 - `openspec/changes/persistent-memory-and-session-history/specs/memory-store/spec.md:15-61` — durable memory lifecycle requirements
 - `openspec/changes/persistent-memory-and-session-history/specs/session-history/spec.md:3-56` — session transcript, summary, and resume requirements
+- `src/persistence/memory.ts:63-180` — durable memory store initialization and remember/recall/forget behavior
+- `src/persistence/sessions.ts:77-137` — transcript persistence, summary persistence, resume loading, and fresh-session summary loading
 
 ---
 
@@ -251,6 +253,8 @@ That preserves user agency and avoids turning memory into an uncontrolled side e
 - `openspec/changes/persistent-memory-and-session-history/design.md:70-84` — decision to use internal REPL commands and avoid model-callable tools
 - `openspec/changes/persistent-memory-and-session-history/specs/memory-store/spec.md:15-61` — remember/recall/forget defined as internal operations
 - `openspec/changes/persistent-memory-and-session-history/specs/repl-chat-loop/spec.md:3-24` — REPL command surface intercepts memory commands before they ever reach the model
+- `src/repl/commands.ts:34-80` — slash commands own remember/recall/forget and short-circuit normal chat flow
+- `src/repl.ts:145-154` — the live REPL intercepts those commands before any model request is made
 
 ---
 
@@ -269,3 +273,6 @@ That is easier to reason about, easier to test, and safer than letting a live RE
 - `openspec/changes/persistent-memory-and-session-history/design.md:127-135` — rationale for startup-only resume
 - `openspec/changes/persistent-memory-and-session-history/specs/cli-bootstrap/spec.md:3-24` — `--resume <sessionId>` added at CLI startup
 - `openspec/changes/persistent-memory-and-session-history/specs/repl-chat-loop/spec.md:28-57` — fresh-session bootstrap and resumed-session transcript restore are separate modes
+- `src/cli.ts:23-45` — CLI entrypoint accepts `--resume` and routes startup through the resume-aware bootstrap
+- `src/repl/bootstrap.ts:69-113` — fresh and resumed boot flows are modeled as separate bootstrap modes
+- `src/repl.ts:81-115` — REPL loads the selected bootstrap mode before entering the interactive loop

@@ -567,3 +567,81 @@ rm -rf .ai-agent
 ```
 
 ---
+
+## Step 7 - Persistent Memory and Session History
+
+### Test 7.1: Remember, recall, and forget across restarts
+
+**Goal:** Verify that durable memories survive process restarts and can be removed explicitly.
+
+**Steps:**
+
+1. Start the agent with `npm run dev`
+2. Type: `/remember Preferred package manager is npm`
+3. Copy the returned memory id
+4. Type: `/recall`
+5. Verify the new memory appears in the list
+6. Exit the agent
+7. Start the agent again with `npm run dev`
+8. Type: `/recall npm`
+9. Verify the remembered fact still appears
+10. Type: `/forget <memoryId>`
+11. Type: `/recall`
+
+**Expected:** The memory remains available after restarting the process, then disappears once you explicitly forget it.
+
+**Pass criteria:** `/remember` creates a durable memory id, `/recall` finds it before and after restart, and `/forget` removes it cleanly.
+
+---
+
+### Test 7.2: Resume restores conversation continuity
+
+**Goal:** Verify that a saved session transcript can be resumed by identifier.
+
+**Steps:**
+
+1. Start the agent with `npm run dev`
+2. Ask: `Remember this for the current conversation only: I am debugging session resume`
+3. Ask a second follow-up question so the session has multiple turns
+4. Exit the agent
+5. Inspect `.ai-agent/sessions/` and note the newest `session_*.json` filename
+6. Restart with `npm run dev -- --resume <sessionId-without-.json>`
+7. Ask: `What were we just working on?`
+
+**Expected:** The resumed session restores the exact prior transcript and the assistant responds with continuity from the earlier conversation instead of acting like a fresh chat.
+
+**Pass criteria:** The assistant correctly references the resumed conversation, and the CLI only starts when the session id exists.
+
+---
+
+### Test 7.3: Fresh sessions keep memories but not prior transcript history
+
+**Goal:** Verify that fresh sessions inject durable memories and recent session summaries without restoring exact old chat turns.
+
+**Steps:**
+
+1. Create at least one durable memory with `/remember`
+2. Have a short chat about a temporary topic such as `We are discussing a one-off refactor plan`
+3. Exit the agent
+4. Start a fresh session with `npm run dev` (no `--resume`)
+5. Ask: `What do you remember?`
+6. Ask: `What exact sentence did I use for the one-off refactor plan?`
+
+**Expected:** The assistant can answer from durable memory and possibly from lightweight session summary context, but it should not reproduce the exact prior transcript as though the full old chat was resumed.
+
+**Pass criteria:** Durable memory is available in the fresh session, but exact transcript continuity requires `--resume`.
+
+---
+
+### Test 7.4: Invalid resume target fails before REPL launch
+
+**Goal:** Verify that `--resume` validates the session id before entering the REPL.
+
+**Steps:**
+
+1. Run: `npm run dev -- --resume session_does_not_exist`
+2. Observe the CLI output
+
+**Expected:** The CLI prints an error explaining that the saved session was not found and exits without showing the REPL prompt.
+
+**Pass criteria:** No interactive prompt appears. The command exits immediately with an error message.
