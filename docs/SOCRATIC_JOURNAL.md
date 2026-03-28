@@ -212,3 +212,60 @@ After:  [summary of turns 1-12] + [turn13, turn14, turn15, turn16, turn17, turn1
 - `openspec/changes/context-window-compression/specs/context-compression/spec.md` — requirements for hybrid compression behavior
 - `src/context/compression.ts` (to be implemented) — the actual compression logic
 
+---
+
+## Step 7 - Persistent Memory and Session History
+
+### Q1: Why separate durable memory from saved session history instead of treating old chats as memory?
+
+**Why it matters:** These sound similar, but they solve different problems. Durable memory is curated knowledge you want the agent to keep using across fresh sessions. Session history is an exact transcript for continuity when you intentionally resume a conversation. If you merge them, forgetting or pruning one concept starts breaking the other.
+
+**What we learned:** The clean boundary is:
+
+1. **Durable memory** — explicit, project-scoped facts with their own lifecycle (`remember`, `recall`, `forget`)
+2. **Session history** — transcript + token totals for resume, plus a separate summary artifact for lightweight future context
+
+That separation keeps the UX honest. `/forget` removes a remembered fact, not an old transcript. Fresh sessions can load memory and summaries without pretending they are the same thing as resumed chat continuity. Good architecture here comes from naming the data by its job, not by the fact that both happen to be "stored on disk."
+
+**Demonstrated in:**
+- `openspec/changes/persistent-memory-and-session-history/design.md:60-68` — explicit decision and rationale for separate stores
+- `openspec/changes/persistent-memory-and-session-history/design.md:137-163` — transcript and summary artifacts kept separate for different jobs
+- `openspec/changes/persistent-memory-and-session-history/specs/memory-store/spec.md:15-61` — durable memory lifecycle requirements
+- `openspec/changes/persistent-memory-and-session-history/specs/session-history/spec.md:3-56` — session transcript, summary, and resume requirements
+
+---
+
+### Q2: Why keep `remember` / `recall` / `forget` as internal app operations instead of model-callable tools?
+
+**Why it matters:** Tool exposure is a trust boundary. If memory becomes a model-callable tool, the model can decide what to save and when. That increases convenience, but it also increases the chance of storing noisy, speculative, or low-value "facts" just because the model thought they might matter in the moment.
+
+**What we learned:** Keeping memory internal and user-driven is the right choice for this phase. Slash commands make the lifecycle explicit:
+
+- `/remember <text>` stores a fact because the user asked
+- `/recall [query]` inspects what is stored
+- `/forget <memoryId>` removes it deliberately
+
+That preserves user agency and avoids turning memory into an uncontrolled side effect of model behavior. In other words: before making the system smarter, make it governable.
+
+**Demonstrated in:**
+- `openspec/changes/persistent-memory-and-session-history/design.md:70-84` — decision to use internal REPL commands and avoid model-callable tools
+- `openspec/changes/persistent-memory-and-session-history/specs/memory-store/spec.md:15-61` — remember/recall/forget defined as internal operations
+- `openspec/changes/persistent-memory-and-session-history/specs/repl-chat-loop/spec.md:3-24` — REPL command surface intercepts memory commands before they ever reach the model
+
+---
+
+### Q3: Why make session resume a CLI startup concern with `--resume <sessionId>` instead of an in-REPL command?
+
+**Why it matters:** Resume changes foundational session state: message history, token totals, and the active session identifier. Doing that after the REPL is already running means you are replacing the ground under the program's feet. That is a classic place where state bugs appear.
+
+**What we learned:** Resume should happen at startup. The REPL boot path is then binary and predictable:
+
+1. **Fresh session** — inject durable memory and recent session summaries only
+2. **Resumed session** — load the saved transcript and continue the same conversation
+
+That is easier to reason about, easier to test, and safer than letting a live REPL swap histories mid-flight. The broader engineering lesson is that big state transitions belong at clear lifecycle boundaries whenever you can manage it.
+
+**Demonstrated in:**
+- `openspec/changes/persistent-memory-and-session-history/design.md:127-135` — rationale for startup-only resume
+- `openspec/changes/persistent-memory-and-session-history/specs/cli-bootstrap/spec.md:3-24` — `--resume <sessionId>` added at CLI startup
+- `openspec/changes/persistent-memory-and-session-history/specs/repl-chat-loop/spec.md:28-57` — fresh-session bootstrap and resumed-session transcript restore are separate modes
