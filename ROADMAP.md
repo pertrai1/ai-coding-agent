@@ -112,21 +112,21 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 7 - Persistent Memory and Session History
 
-- [ ] Create a filesystem directory for long-term memory entries.
-- [ ] Create an index file for memory lookup metadata.
-- [ ] Implement a `remember` operation that stores durable facts.
-- [ ] Implement a `recall` operation that retrieves relevant memories.
-- [ ] Implement a `forget` operation that removes selected memories.
-- [ ] Save completed sessions to persistent storage.
-- [ ] Implement session resume by session identifier.
-- [ ] Summarize completed sessions for lightweight future context loading.
-- [ ] Load memory index data when a new session starts.
-- [ ] Inject relevant memories into new-session context without restoring prior chat turns.
-- [ ] Load prior session summaries for fresh sessions without loading full old transcripts.
-- [ ] Add a manual test for remember/recall/forget across process restarts.
-- [ ] Add a manual test that resumed sessions restore conversation continuity.
-- [ ] Add a manual test that fresh sessions keep memories but not prior conversation history.
-- [ ] Add a manual test prompt: "what do you remember?" and verify memory listing.
+- [x] Create a filesystem directory for long-term memory entries.
+- [x] Create an index file for memory lookup metadata.
+- [x] Implement a `remember` operation that stores durable facts.
+- [x] Implement a `recall` operation that retrieves relevant memories.
+- [x] Implement a `forget` operation that removes selected memories.
+- [x] Save completed sessions to persistent storage.
+- [x] Implement session resume by session identifier.
+- [x] Summarize completed sessions for lightweight future context loading.
+- [x] Load memory index data when a new session starts.
+- [x] Inject relevant memories into new-session context without restoring prior chat turns.
+- [x] Load prior session summaries for fresh sessions without loading full old transcripts.
+- [x] Add a manual test for remember/recall/forget across process restarts.
+- [x] Add a manual test that resumed sessions restore conversation continuity.
+- [x] Add a manual test that fresh sessions keep memories but not prior conversation history.
+- [x] Add a manual test prompt: "what do you remember?" and verify memory listing.
 
 ## Step 8 - Subagents and Plan Mode
 
