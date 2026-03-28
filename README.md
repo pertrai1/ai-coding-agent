@@ -29,6 +29,21 @@ npm run dev
 
 Type a message and press Enter. Responses stream to the terminal as they're generated. Type `exit` or `quit` to leave, or press `Ctrl+C`.
 
+Useful built-in commands:
+
+- `/status` shows current context usage
+- `/remember <fact>` stores a durable project memory
+- `/recall [query]` lists stored memories or searches them
+- `/forget <memoryId>` removes a stored memory
+
+To resume a saved session:
+
+```bash
+npm run dev -- --resume <sessionId>
+```
+
+The agent stores project-scoped session and memory data under `.ai-agent/` in the current project.
+
 ### Example prompts
 
 ```
