@@ -29,7 +29,9 @@ export type ToolRegistry = {
   getDefinitions: () => ToolDefinition[];
 };
 
-export function createToolRegistry(): ToolRegistry {
+export function createToolRegistry(
+  permissionOverrides?: Record<string, ToolPermission>,
+): ToolRegistry {
   const tools = new Map<string, ToolRegistration>();
 
   const registry: ToolRegistry = {
@@ -50,6 +52,15 @@ export function createToolRegistry(): ToolRegistry {
   registry.register(globTool);
   registry.register(grepTool);
   registry.register(bashTool);
+
+  if (permissionOverrides) {
+    for (const [toolName, permission] of Object.entries(permissionOverrides)) {
+      const tool = tools.get(toolName);
+      if (tool) {
+        tools.set(toolName, { ...tool, permission });
+      }
+    }
+  }
 
   return registry;
 }

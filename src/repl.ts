@@ -4,12 +4,14 @@ import chalk from "chalk";
 import { AnthropicError } from "./api/anthropic.js";
 import type { Message } from "./api/anthropic.js";
 import { runAgentLoop } from "./agent.js";
+import { assembleSystemPrompt } from "./config/context.js";
+import type { ResolvedConfig } from "./config/types.js";
 import { TokenTracker } from "./context/tracker.js";
 import { createToolRegistry } from "./tools/index.js";
 
-const SYSTEM_PROMPT =
+const BASE_SYSTEM_PROMPT =
   "You are an AI coding assistant. You help users with programming questions, debug code, and write new code. Be concise and provide working code examples when appropriate.";
-const MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 const PROMPT = "> ";
 const EXIT_COMMANDS = new Set(["exit", "quit"]);
 const STATUS_COMMAND = "/status";
@@ -69,12 +71,18 @@ function createPromptForApproval(
   };
 }
 
-export async function startRepl(apiKey: string): Promise<void> {
+export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const messages: Message[] = [];
-  const toolRegistry = createToolRegistry();
+  const toolRegistry = createToolRegistry(config.permissions);
   const promptForApproval = createPromptForApproval(rl);
   const tokenTracker = new TokenTracker();
+  const model = config.model ?? DEFAULT_MODEL;
+  const systemPrompt = assembleSystemPrompt(
+    BASE_SYSTEM_PROMPT,
+    config.projectInstructions ?? null,
+    config.systemPromptExtra,
+  );
 
   console.log(chalk.cyan("AI Coding Agent"));
   console.log(chalk.dim('Type "exit" or "quit" to leave. Type /status for context info.\n'));
@@ -119,9 +127,9 @@ export async function startRepl(apiKey: string): Promise<void> {
         await runAgentLoop({
           messages,
           toolRegistry,
-          model: MODEL,
+          model,
           apiKey,
-          system: SYSTEM_PROMPT,
+          system: systemPrompt,
           write: (text) => process.stdout.write(text),
           promptForApproval,
           tokenTracker,

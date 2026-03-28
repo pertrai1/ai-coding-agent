@@ -29,8 +29,12 @@ program.action(async () => {
     process.exit(1);
   }
 
+  const { loadConfig, loadProjectInstructions } = await import("./config/index.js");
+  const config = loadConfig();
+  const projectInstructions = loadProjectInstructions(process.cwd());
+
   const { startRepl } = await import("./repl.js");
-  await startRepl(apiKey);
+  await startRepl(apiKey, { ...config, projectInstructions });
 });
 
 program.parse();

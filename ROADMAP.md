@@ -99,16 +99,16 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 6 - Project Context and Config Hierarchy
 
-- [ ] Load `AGENTS.md` from project root when it exists.
-- [ ] Inject loaded project instructions into startup conversation context.
-- [ ] Define config files for global, project, and local scopes.
-- [ ] Implement config merge order: global < project < local.
-- [ ] Add config keys for provider/model defaults.
-- [ ] Add config keys for per-tool permission defaults.
-- [ ] Add config keys for extra system prompt text.
-- [ ] Handle missing config files without startup failure.
-- [ ] Add a manual test that verifies precedence across all three config scopes.
-- [ ] Add a manual test that verifies operation with no `AGENTS.md` present.
+- [x] Load `AGENTS.md` from project root when it exists.
+- [x] Inject loaded project instructions into startup conversation context.
+- [x] Define config files for global, project, and local scopes.
+- [x] Implement config merge order: global < project < local.
+- [x] Add config keys for provider/model defaults.
+- [x] Add config keys for per-tool permission defaults.
+- [x] Add config keys for extra system prompt text.
+- [x] Handle missing config files without startup failure.
+- [x] Add a manual test that verifies precedence across all three config scopes.
+- [x] Add a manual test that verifies operation with no `AGENTS.md` present.
 
 ## Step 7 - Persistent Memory and Session History
 

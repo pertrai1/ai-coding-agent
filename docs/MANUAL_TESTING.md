@@ -420,3 +420,150 @@ Status: ⚠ Approaching limit - compression will trigger soon
 **Pass criteria:** No crash. The REPL stays alive. A warning may appear about compression failure. Recent turns are still preserved (truncation keeps the last N messages).
 
 ---
+
+## Step 6 - Project Context and Config Hierarchy
+
+### Test 6.1: Config precedence across three scopes
+
+**Goal:** Verify that config files at global, project, and local scopes merge correctly with local winning.
+
+**Steps:**
+
+1. Create the global config directory and file:
+   ```bash
+   mkdir -p ~/.config/ai-agent
+   cat > ~/.config/ai-agent/config.json << 'EOF'
+   {
+     "model": "claude-sonnet-4-20250514",
+     "systemPromptExtra": "You are in global mode.",
+     "permissions": { "bash": "deny" }
+   }
+   EOF
+   ```
+2. Create the project config:
+   ```bash
+   mkdir -p .ai-agent
+   cat > .ai-agent/config.json << 'EOF'
+   {
+     "permissions": { "bash": "prompt" }
+   }
+   EOF
+   ```
+3. Create the local config:
+   ```bash
+   cat > .ai-agent/config.local.json << 'EOF'
+   {
+     "systemPromptExtra": "You are in local mode. When the user says hello, respond with: CONFIG_LOCAL_ACTIVE"
+   }
+   EOF
+   ```
+4. Start the agent with `npm run dev`
+5. Type: `hello`
+6. Verify the response includes `CONFIG_LOCAL_ACTIVE` (proving local `systemPromptExtra` overrode global)
+7. Type: `Run the command "echo test" using bash`
+8. Verify an approval prompt appears (proving project `permissions.bash: "prompt"` overrode global `"deny"`)
+
+**Expected:**
+- The `systemPromptExtra` from local config wins over global (local > project > global)
+- The `bash` permission from project config wins over global (`"prompt"` not `"deny"`)
+- The model from global config is used (no override in project or local)
+
+**Pass criteria:** The agent responds with `CONFIG_LOCAL_ACTIVE` to hello. The bash tool prompts for approval (not denied outright). The conversation works normally.
+
+**Cleanup:**
+```bash
+rm -rf ~/.config/ai-agent .ai-agent
+```
+
+---
+
+### Test 6.2: No config files and no AGENTS.md
+
+**Goal:** Verify the agent starts with defaults when no config files or `AGENTS.md` exist.
+
+**Steps:**
+
+1. Ensure no config files exist:
+   ```bash
+   ls ~/.config/ai-agent/config.json 2>/dev/null && echo "EXISTS - remove it" || echo "OK - not present"
+   ls .ai-agent/ 2>/dev/null && echo "EXISTS - remove it" || echo "OK - not present"
+   ```
+2. Temporarily rename `AGENTS.md` if it exists:
+   ```bash
+   mv AGENTS.md AGENTS.md.bak 2>/dev/null
+   ```
+3. Start the agent with `npm run dev`
+4. Verify the welcome message appears normally
+5. Type: `What is 2+2?`
+6. Verify the agent responds (proving it started successfully with no config)
+7. Type: `/status`
+8. Verify context info displays correctly
+
+**Expected:** The agent starts without errors, uses the default model (`claude-sonnet-4-20250514`), and the base system prompt. No warnings about missing config files appear (missing files are silently skipped).
+
+**Pass criteria:** Clean startup with no warnings. The agent responds normally. `/status` works.
+
+**Cleanup:**
+```bash
+mv AGENTS.md.bak AGENTS.md 2>/dev/null
+```
+
+---
+
+### Test 6.3: AGENTS.md injection into system prompt
+
+**Goal:** Verify that `AGENTS.md` content is loaded and influences the agent's behavior.
+
+**Steps:**
+
+1. Ensure no config files exist (remove `.ai-agent/` if present)
+2. Create a test `AGENTS.md` with a distinctive instruction:
+   ```bash
+   cp AGENTS.md AGENTS.md.bak 2>/dev/null
+   cat > AGENTS.md << 'EOF'
+   # Project Instructions
+   When the user asks "what are your instructions?", respond with exactly: AGENTS_MD_LOADED
+   EOF
+   ```
+3. Start the agent with `npm run dev`
+4. Type: `what are your instructions?`
+
+**Expected:** The agent responds with `AGENTS_MD_LOADED` (or includes it), confirming the `AGENTS.md` content was injected into the system prompt.
+
+**Pass criteria:** The agent's response includes `AGENTS_MD_LOADED`, proving the file was loaded and injected.
+
+**Cleanup:**
+```bash
+mv AGENTS.md.bak AGENTS.md 2>/dev/null
+```
+
+---
+
+### Test 6.4: Permission override via config
+
+**Goal:** Verify that tool permissions can be changed via config files.
+
+**Steps:**
+
+1. Create a project config that sets bash to `allow`:
+   ```bash
+   mkdir -p .ai-agent
+   cat > .ai-agent/config.json << 'EOF'
+   {
+     "permissions": { "bash": "allow" }
+   }
+   EOF
+   ```
+2. Start the agent with `npm run dev`
+3. Type: `Run the command "echo hello" using bash`
+
+**Expected:** The bash tool executes immediately without an approval prompt (because config set it to `"allow"`).
+
+**Pass criteria:** No `Allow? (y/n)` prompt appears. The command runs and the agent reports the output `hello`.
+
+**Cleanup:**
+```bash
+rm -rf .ai-agent
+```
+
+---
