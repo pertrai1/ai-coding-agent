@@ -18,7 +18,7 @@ import {
 } from "./persistence/sessions.js";
 import { buildSessionBootstrap } from "./repl/bootstrap.js";
 import { handleSlashCommand } from "./repl/commands.js";
-import { createToolRegistry } from "./tools/index.js";
+import { createToolRegistry, enablePlanMode, disablePlanMode } from "./tools/index.js";
 import { createSubagentTool } from "./subagent/tool.js";
 
 const BASE_SYSTEM_PROMPT =
@@ -84,6 +84,12 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
       ),
     }),
   );
+  let planMode = config.planMode ?? false;
+
+  if (planMode) {
+    enablePlanMode(toolRegistry);
+  }
+
   const promptForApproval = createPromptForApproval(rl);
   const tokenTracker = new TokenTracker();
   const model = config.model ?? DEFAULT_MODEL;
@@ -130,7 +136,10 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
   }
 
   console.log(chalk.cyan("AI Coding Agent"));
-  console.log(chalk.dim('Type "exit" or "quit" to leave. Type /status for context info.\n'));
+  if (planMode) {
+    console.log(chalk.yellow("📋 Plan mode active — mutating tools are disabled."));
+  }
+  console.log(chalk.dim('Type "exit" or "quit" to leave. Type /status for context info. Type /plan to toggle plan mode.\n'));
 
   try {
     while (true) {
@@ -164,6 +173,16 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
         remember,
         recall,
         forget,
+        planMode,
+        togglePlanMode: () => {
+          planMode = !planMode;
+          if (planMode) {
+            enablePlanMode(toolRegistry);
+          } else {
+            disablePlanMode(toolRegistry, config.permissions);
+          }
+          return planMode;
+        },
       })) {
         continue;
       }

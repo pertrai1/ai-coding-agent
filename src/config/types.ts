@@ -10,4 +10,5 @@ export type ResolvedConfig = Config & {
   projectInstructions?: string | null;
   projectRoot?: string;
   resumeSessionId?: string;
+  planMode?: boolean;
 };

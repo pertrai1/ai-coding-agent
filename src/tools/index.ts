@@ -29,6 +29,8 @@ export type ToolRegistry = {
   getDefinitions: () => ToolDefinition[];
 };
 
+const MUTATING_TOOLS = new Set(["edit_file", "write_file", "bash", "subagent"]);
+
 export function createToolRegistry(
   permissionOverrides?: Record<string, ToolPermission>,
 ): ToolRegistry {
@@ -63,4 +65,37 @@ export function createToolRegistry(
   }
 
   return registry;
+}
+
+export function isMutatingTool(name: string): boolean {
+  return MUTATING_TOOLS.has(name);
+}
+
+export function enablePlanMode(registry: ToolRegistry): void {
+  for (const name of MUTATING_TOOLS) {
+    const tool = registry.get(name);
+    if (tool) {
+      registry.register({ ...tool, permission: "deny" });
+    }
+  }
+}
+
+export function disablePlanMode(
+  registry: ToolRegistry,
+  permissionOverrides?: Record<string, ToolPermission>,
+): void {
+  const defaults: Record<string, ToolPermission> = {
+    edit_file: "prompt",
+    write_file: "prompt",
+    bash: "prompt",
+    subagent: "prompt",
+  };
+
+  for (const name of MUTATING_TOOLS) {
+    const tool = registry.get(name);
+    if (tool) {
+      const permission = permissionOverrides?.[name] ?? defaults[name] ?? "prompt";
+      registry.register({ ...tool, permission });
+    }
+  }
 }

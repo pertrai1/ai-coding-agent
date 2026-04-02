@@ -1,4 +1,5 @@
 import type { Config } from "../config/index.js";
+import type { ResolvedConfig } from "../config/types.js";
 
 type RunCliDependencies = {
   cwd: string;
@@ -6,14 +7,7 @@ type RunCliDependencies = {
   loadConfig: (options?: { cwd?: string }) => Config;
   loadProjectInstructions: (cwd: string) => string | null;
   assertResumeTarget: (projectRoot: string, sessionId: string) => Promise<void>;
-  startRepl: (
-    apiKey: string,
-    config: Config & {
-      projectInstructions?: string | null;
-      projectRoot?: string;
-      resumeSessionId?: string;
-    },
-  ) => Promise<void>;
+  startRepl: (apiKey: string, config: ResolvedConfig) => Promise<void>;
   writeError: (message: string) => void;
   exit: (code: number) => void;
 };
@@ -25,6 +19,10 @@ function parseResumeSessionId(args: string[]): string | undefined {
   }
 
   return args[resumeIndex + 1];
+}
+
+function parsePlanMode(args: string[]): boolean {
+  return args.includes("--plan");
 }
 
 export async function runCli(args: string[], dependencies: RunCliDependencies): Promise<void> {
@@ -47,6 +45,7 @@ export async function runCli(args: string[], dependencies: RunCliDependencies): 
   }
 
   const resumeSessionId = parseResumeSessionId(args);
+  const planMode = parsePlanMode(args);
 
   const config = loadConfig({ cwd });
   const projectInstructions = loadProjectInstructions(cwd);
@@ -67,5 +66,6 @@ export async function runCli(args: string[], dependencies: RunCliDependencies): 
     projectInstructions,
     projectRoot: cwd,
     resumeSessionId,
+    planMode,
   });
 }

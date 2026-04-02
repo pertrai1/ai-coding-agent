@@ -10,6 +10,8 @@ type HandleSlashCommandOptions = {
   remember: (projectRoot: string, text: string) => Promise<{ id: string; text: string }>;
   recall: (projectRoot: string, query?: string) => Promise<MemoryIndexEntry[]>;
   forget: (projectRoot: string, memoryId: string) => Promise<{ removed: boolean }>;
+  planMode?: boolean;
+  togglePlanMode?: () => boolean;
 };
 
 function formatStatus(tracker: TokenTracker): string {
@@ -40,10 +42,24 @@ export async function handleSlashCommand(
     return false;
   }
 
-  const { projectRoot, tracker, writeLine, remember, recall, forget } = options;
+  const { projectRoot, tracker, writeLine, remember, recall, forget, togglePlanMode } = options;
 
   if (trimmed.toLowerCase() === "/status") {
     writeLine(formatStatus(tracker));
+    return true;
+  }
+
+  if (trimmed.toLowerCase() === "/plan") {
+    if (togglePlanMode) {
+      const newState = togglePlanMode();
+      writeLine(
+        newState
+          ? chalk.yellow("Plan mode ON — mutating tools disabled.")
+          : chalk.green("Plan mode OFF — mutating tools re-enabled."),
+      );
+    } else {
+      writeLine(chalk.dim("Plan mode toggle not available."));
+    }
     return true;
   }
 

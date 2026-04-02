@@ -21,10 +21,17 @@ const program = new Command();
 
 program.name(metadata.name).description(metadata.description).version(metadata.version);
 program.option("--resume <sessionId>", "Resume a saved session by identifier");
+program.option("--plan", "Start in plan mode (read-only, no mutating tools)");
 
 program.action(async (_options, command) => {
-  const parsed = command.opts() as { resume?: string };
-  const args = parsed.resume ? ["--resume", parsed.resume] : [];
+  const parsed = command.opts() as { resume?: string; plan?: boolean };
+  const args: string[] = [];
+  if (parsed.resume) {
+    args.push("--resume", parsed.resume);
+  }
+  if (parsed.plan) {
+    args.push("--plan");
+  }
 
   const { runCli } = await import("./cli/runCli.js");
   const { loadConfig, loadProjectInstructions } = await import("./config/index.js");
