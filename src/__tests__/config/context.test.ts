@@ -48,7 +48,8 @@ describe("loadProjectInstructions", () => {
 
     expect(result).toBeNull();
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("AGENTS.md"),
+      "Warning: could not read AGENTS.md",
+      expect.objectContaining({ error: expect.stringContaining("EACCES") }),
     );
 
     // Restore permissions for cleanup
