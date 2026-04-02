@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { loadConfigFile } from "../../config/loader.js";
+import { loadConfigFile } from "../../config/loadConfigFile.js";
 
 describe("loadConfigFile", () => {
   let tempDir: string;

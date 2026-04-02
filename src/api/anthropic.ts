@@ -1,3 +1,5 @@
+import { parseSSEStream } from "./sse-parser.js";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -206,85 +208,7 @@ export async function createMessageStream(
   return response;
 }
 
-type SSEEvent = {
-  event: string | null;
-  data: string;
-};
-
-export async function* parseSSEStream(
-  body: ReadableStream<Uint8Array>,
-): AsyncGenerator<SSEEvent> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let currentEvent: string | null = null;
-  let dataLines: string[] = [];
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const rawLine of lines) {
-        const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-
-        if (line === "") {
-          if (currentEvent !== null || dataLines.length > 0) {
-            yield {
-              event: currentEvent,
-              data: dataLines.join("\n"),
-            };
-            currentEvent = null;
-            dataLines = [];
-          }
-          continue;
-        }
-
-        if (line.startsWith(":")) continue;
-
-        const colonIndex = line.indexOf(":");
-        if (colonIndex === -1) continue;
-
-        const field = line.slice(0, colonIndex);
-        let value = line.slice(colonIndex + 1);
-        if (value.startsWith(" ")) value = value.slice(1);
-
-        if (field === "event") {
-          currentEvent = value;
-        } else if (field === "data") {
-          dataLines.push(value);
-        }
-      }
-    }
-
-    if (buffer.length > 0) {
-      const line = buffer.endsWith("\r") ? buffer.slice(0, -1) : buffer;
-      if (line !== "" && !line.startsWith(":")) {
-        const colonIndex = line.indexOf(":");
-        if (colonIndex !== -1) {
-          const field = line.slice(0, colonIndex);
-          let value = line.slice(colonIndex + 1);
-          if (value.startsWith(" ")) value = value.slice(1);
-          if (field === "event") currentEvent = value;
-          else if (field === "data") dataLines.push(value);
-        }
-      }
-    }
-
-    if (currentEvent !== null || dataLines.length > 0) {
-      yield {
-        event: currentEvent,
-        data: dataLines.join("\n"),
-      };
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
+export { parseSSEStream, type SSEEvent } from "./sse-parser.js";
 
 type StreamMessageOptions = {
   messages: Message[];

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createMessageStream } from "../../api/anthropic.js";
 import type { Message } from "../../api/anthropic.js";
-import { compressConversation } from "../../context/compression.js";
+import { compressConversation } from "../../context/compressConversation.js";
 
 vi.mock("../../api/anthropic.js", async () => {
   const actual = await vi.importActual<typeof import("../../api/anthropic.js")>(

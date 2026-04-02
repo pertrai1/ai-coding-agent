@@ -1,5 +1,6 @@
 import type { ContentBlock, Message } from "../api/anthropic.js";
-import { createMessageStream, parseSSEStream } from "../api/anthropic.js";
+import { createMessageStream } from "../api/anthropic.js";
+import { parseSSEStream } from "../api/sse-parser.js";
 import type { CompressionOptions, CompressionResult } from "./types.js";
 
 const DEFAULT_PRESERVE_TURNS = 6;

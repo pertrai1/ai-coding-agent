@@ -8,7 +8,7 @@ export function loadProjectInstructions(cwd: string): string | null {
   } catch (error: unknown) {
     const isNotFound = error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
     if (!isNotFound) {
-      console.warn(`Warning: could not read AGENTS.md: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn("Warning: could not read AGENTS.md", { error: error instanceof Error ? error.message : String(error) });
     }
     return null;
   }

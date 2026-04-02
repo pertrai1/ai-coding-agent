@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { editFileTool } from "../tools/edit-file.js";
+import { editFileTool } from "../tools/editFileTool.js";
 
 describe("edit_file tool", () => {
   let tempDir: string | undefined;

@@ -26,7 +26,7 @@ program.action(async (_options, command) => {
   const parsed = command.opts() as { resume?: string };
   const args = parsed.resume ? ["--resume", parsed.resume] : [];
 
-  const { runCli } = await import("./cli/app.js");
+  const { runCli } = await import("./cli/runCli.js");
   const { loadConfig, loadProjectInstructions } = await import("./config/index.js");
   const { loadSessionForResume } = await import("./persistence/sessions.js");
   const { startRepl } = await import("./repl.js");

@@ -5,7 +5,7 @@ import type {
   StreamEvent,
   ToolUseBlock,
 } from "./api/anthropic.js";
-import { compressConversation } from "./context/compression.js";
+import { compressConversation } from "./context/compressConversation.js";
 import type { TokenTracker } from "./context/tracker.js";
 import type { ToolRegistry, ToolResult } from "./tools/index.js";
 

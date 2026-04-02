@@ -97,7 +97,7 @@ async function loadSessionsModule() {
 }
 
 async function loadCliAppModule() {
-  const moduleUrl = new URL("../cli/app.js", import.meta.url).href;
+  const moduleUrl = new URL("../cli/runCli.js", import.meta.url).href;
   return import(moduleUrl);
 }
 
