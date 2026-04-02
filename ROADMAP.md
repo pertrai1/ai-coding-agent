@@ -130,11 +130,11 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Step 8 - Subagents and Plan Mode
 
-- [ ] Implement subagent spawning with isolated message history.
-- [ ] Allow parent agent to send a scoped task prompt to each subagent.
-- [ ] Give each subagent access to the same tool catalog as the main agent.
-- [ ] Collect subagent outputs and return a merged parent summary.
-- [ ] Keep subagent tool-call traces out of main chat transcript by default.
+- [x] Implement subagent spawning with isolated message history.
+- [x] Allow parent agent to send a scoped task prompt to each subagent.
+- [x] Give each subagent access to the same tool catalog as the main agent.
+- [x] Collect subagent outputs and return a merged parent summary.
+- [x] Keep subagent tool-call traces out of main chat transcript by default.
 - [ ] Add a plan-mode switch that disables mutating tools.
 - [ ] Use a planner-oriented system prompt while in plan mode.
 - [ ] Add explicit user approval flow to exit plan mode into execution mode.
