@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createToolRegistry } from "../tools/index.js";
-import { readFileTool } from "../tools/read-file.js";
+import { readFileTool } from "../tools/readFileTool.js";
 
 describe("tool registry", () => {
   it("registers all six built-in tools on creation", () => {

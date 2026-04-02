@@ -2,12 +2,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import type { ToolPermission } from "../tools/index.js";
-import { loadConfigFile } from "./loader.js";
+import { loadConfigFile } from "./loadConfigFile.js";
 import { mergeConfigs } from "./merge.js";
 import type { Config } from "./types.js";
 
 export type { Config, ResolvedConfig } from "./types.js";
-export { loadConfigFile } from "./loader.js";
+export { loadConfigFile } from "./loadConfigFile.js";
 export { mergeConfigs } from "./merge.js";
 export { loadProjectInstructions, assembleSystemPrompt } from "./context.js";
 
@@ -26,7 +26,7 @@ function validatePermissions(config: Config): Config {
     if (VALID_PERMISSIONS.has(perm as ToolPermission)) {
       validated[tool] = perm as ToolPermission;
     } else {
-      console.warn(`Warning: invalid permission value "${perm}" for tool "${tool}", skipping`);
+      console.warn("Warning: invalid permission value for tool", { tool, permission: perm });
     }
   }
 

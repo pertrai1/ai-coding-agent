@@ -7,4 +7,4 @@ export type {
 } from "./types.js";
 
 export { TokenTracker } from "./tracker.js";
-export { compressConversation } from "./compression.js";
+export { compressConversation } from "./compressConversation.js";

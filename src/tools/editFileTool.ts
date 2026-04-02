@@ -22,39 +22,54 @@ function countOccurrences(
   return { count, firstIndex };
 }
 
+type FileEditError = {
+  kind: "not_found" | "permission" | "is_dir" | "other";
+  message: string;
+};
+
+function classifyEditError(error: unknown, filePath: string): FileEditError {
+  if (error instanceof Error) {
+    const nodeError = error as NodeJS.ErrnoException;
+
+    if (nodeError.code === "ENOENT") {
+      return { kind: "not_found", message: `Error: File not found: ${filePath}` };
+    }
+
+    if (nodeError.code === "EACCES") {
+      return { kind: "permission", message: `Error: Permission denied: ${filePath}` };
+    }
+
+    if (nodeError.code === "EISDIR") {
+      return { kind: "is_dir", message: `Error: Path is a directory, not a file: ${filePath}` };
+    }
+
+    return { kind: "other", message: `Error editing file ${filePath}: ${error.message}` };
+  }
+
+  return { kind: "other", message: `Error editing file ${filePath}: ${String(error)}` };
+}
+
 async function execute(input: Record<string, unknown>): Promise<ToolResult> {
   const filePath = input.filePath;
 
   if (typeof filePath !== "string" || filePath.length === 0) {
-    return {
-      content: "Error: filePath is required and must be a string.",
-      isError: true,
-    };
+    return { content: "Error: filePath is required and must be a string.", isError: true };
   }
 
   const findText = input.findText;
 
   if (typeof findText !== "string") {
-    return {
-      content: "Error: findText is required and must be a string.",
-      isError: true,
-    };
+    return { content: "Error: findText is required and must be a string.", isError: true };
   }
 
   if (findText.length === 0) {
-    return {
-      content: "Error: findText must not be empty.",
-      isError: true,
-    };
+    return { content: "Error: findText must not be empty.", isError: true };
   }
 
   const replaceText = input.replaceText;
 
   if (typeof replaceText !== "string") {
-    return {
-      content: "Error: replaceText is required and must be a string.",
-      isError: true,
-    };
+    return { content: "Error: replaceText is required and must be a string.", isError: true };
   }
 
   try {
@@ -62,10 +77,7 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
     const { count, firstIndex } = countOccurrences(content, findText);
 
     if (count === 0) {
-      return {
-        content: `Error: The specified text was not found in ${filePath}.`,
-        isError: true,
-      };
+      return { content: `Error: The specified text was not found in ${filePath}.`, isError: true };
     }
 
     if (count > 1) {
@@ -82,44 +94,10 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
 
     await writeFile(filePath, updated, "utf-8");
 
-    return {
-      content: `Successfully edited ${filePath}. Replaced 1 occurrence.`,
-    };
+    return { content: `Successfully edited ${filePath}. Replaced 1 occurrence.` };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      const nodeError = error as NodeJS.ErrnoException;
-
-      if (nodeError.code === "ENOENT") {
-        return {
-          content: `Error: File not found: ${filePath}`,
-          isError: true,
-        };
-      }
-
-      if (nodeError.code === "EACCES") {
-        return {
-          content: `Error: Permission denied: ${filePath}`,
-          isError: true,
-        };
-      }
-
-      if (nodeError.code === "EISDIR") {
-        return {
-          content: `Error: Path is a directory, not a file: ${filePath}`,
-          isError: true,
-        };
-      }
-
-      return {
-        content: `Error editing file ${filePath}: ${error.message}`,
-        isError: true,
-      };
-    }
-
-    return {
-      content: `Error editing file ${filePath}: ${String(error)}`,
-      isError: true,
-    };
+    const classified = classifyEditError(error, filePath);
+    return { content: classified.message, isError: true };
   }
 }
 

@@ -35,6 +35,60 @@ async function searchFile(
   }
 }
 
+async function searchDirectory(
+  targetPath: string,
+  matcher: (line: string) => boolean,
+  globPattern: string,
+): Promise<string[]> {
+  const files: string[] = [];
+
+  for await (const entry of fsGlob(globPattern, { cwd: targetPath })) {
+    files.push(entry);
+  }
+
+  const allMatches: string[] = [];
+  for (const file of files) {
+    const fullPath = join(targetPath, file);
+    const matches = await searchFileWithStat(fullPath, matcher);
+    allMatches.push(...matches);
+  }
+
+  return allMatches;
+}
+
+async function searchFileWithStat(
+  fullPath: string,
+  matcher: (line: string) => boolean,
+): Promise<string[]> {
+  try {
+    const fileStat = await stat(fullPath);
+    if (fileStat.isFile()) {
+      return searchFile(fullPath, matcher);
+    }
+  } catch {
+    // Skip files we can't stat
+  }
+  return [];
+}
+
+function buildPathErrorResponse(targetPath: string, error: unknown): ToolResult {
+  if (error instanceof Error) {
+    const nodeError = error as NodeJS.ErrnoException;
+
+    if (nodeError.code === "ENOENT") {
+      return { content: `Error: Path not found: ${targetPath}`, isError: true };
+    }
+
+    if (nodeError.code === "EACCES") {
+      return { content: `Error: Permission denied: ${targetPath}`, isError: true };
+    }
+
+    return { content: `Error running grep: ${error.message}`, isError: true };
+  }
+
+  return { content: `Error running grep: ${String(error)}`, isError: true };
+}
+
 async function execute(input: Record<string, unknown>): Promise<ToolResult> {
   const pattern = input.pattern;
 
@@ -48,19 +102,13 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
   const searchPath = input.path;
 
   if (searchPath !== undefined && typeof searchPath !== "string") {
-    return {
-      content: "Error: path must be a string.",
-      isError: true,
-    };
+    return { content: "Error: path must be a string.", isError: true };
   }
 
   const include = input.include;
 
   if (include !== undefined && typeof include !== "string") {
-    return {
-      content: "Error: include must be a string.",
-      isError: true,
-    };
+    return { content: "Error: include must be a string.", isError: true };
   }
 
   const matcher = buildMatcher(pattern);
@@ -69,74 +117,29 @@ async function execute(input: Record<string, unknown>): Promise<ToolResult> {
 
   try {
     const pathStat = await stat(targetPath);
-    const allMatches: string[] = [];
 
     if (pathStat.isFile()) {
       const matches = await searchFile(targetPath, matcher);
-      allMatches.push(...matches);
-    } else if (pathStat.isDirectory()) {
-      const globPattern =
-        typeof include === "string" ? include : "**/*";
+      return matches.length > 0
+        ? { content: matches.join("\n") }
+        : { content: "No matches found." };
+    }
 
-      const files: string[] = [];
-
-      for await (const entry of fsGlob(globPattern, { cwd: targetPath })) {
-        files.push(entry);
-      }
-
-      for (const file of files) {
-        const fullPath = join(targetPath, file);
-
-        try {
-          const fileStat = await stat(fullPath);
-          if (fileStat.isFile()) {
-            const matches = await searchFile(fullPath, matcher);
-            allMatches.push(...matches);
-          }
-        } catch {
-          // Skip files we can't stat
-        }
-      }
-    } else {
+    if (!pathStat.isDirectory()) {
       return {
         content: `Error: Path is neither a file nor a directory: ${targetPath}`,
         isError: true,
       };
     }
 
-    if (allMatches.length === 0) {
-      return { content: "No matches found." };
-    }
+    const globPattern = typeof include === "string" ? include : "**/*";
+    const allMatches = await searchDirectory(targetPath, matcher, globPattern);
 
-    return { content: allMatches.join("\n") };
+    return allMatches.length > 0
+      ? { content: allMatches.join("\n") }
+      : { content: "No matches found." };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      const nodeError = error as NodeJS.ErrnoException;
-
-      if (nodeError.code === "ENOENT") {
-        return {
-          content: `Error: Path not found: ${targetPath}`,
-          isError: true,
-        };
-      }
-
-      if (nodeError.code === "EACCES") {
-        return {
-          content: `Error: Permission denied: ${targetPath}`,
-          isError: true,
-        };
-      }
-
-      return {
-        content: `Error running grep: ${error.message}`,
-        isError: true,
-      };
-    }
-
-    return {
-      content: `Error running grep: ${String(error)}`,
-      isError: true,
-    };
+    return buildPathErrorResponse(targetPath, error);
   }
 }
 

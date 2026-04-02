@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { writeFileTool } from "../tools/write-file.js";
+import { writeFileTool } from "../tools/writeFileTool.js";
 
 describe("write_file tool", () => {
   let tempDir: string | undefined;

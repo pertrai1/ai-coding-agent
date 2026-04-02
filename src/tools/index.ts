@@ -1,10 +1,10 @@
 import type { ToolDefinition } from "../api/anthropic.js";
 import { bashTool } from "./bash.js";
-import { editFileTool } from "./edit-file.js";
+import { editFileTool } from "./editFileTool.js";
 import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
-import { readFileTool } from "./read-file.js";
-import { writeFileTool } from "./write-file.js";
+import { readFileTool } from "./readFileTool.js";
+import { writeFileTool } from "./writeFileTool.js";
 
 export type { ToolDefinition };
 

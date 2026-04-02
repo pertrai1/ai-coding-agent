@@ -6,6 +6,8 @@
     "dev": "tsx src/cli.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "test": "vitest run"
   },
   "repository": {
@@ -30,8 +32,12 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "@typescript-eslint/utils": "^8.58.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-llm-core": "^0.3.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
     "vitest": "^4.1.0"
   }
 }

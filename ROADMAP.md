@@ -148,6 +148,6 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 - [ ] Add Model Context Protocol (MCP) client support for external tool servers.
 - [ ] Add reusable skills with named prompts and tool bundles.
 - [ ] Add lifecycle hooks (before tool, after edit, on startup).
-- [ ] Add model switching inside an active session.
+- [x] Add model switching inside an active session.
 - [ ] Add non-interactive headless mode for scripting and automation.
 - [ ] Add CI job coverage for headless execution paths.

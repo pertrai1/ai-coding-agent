@@ -276,3 +276,21 @@ That is easier to reason about, easier to test, and safer than letting a live RE
 - `src/cli.ts:23-45` — CLI entrypoint accepts `--resume` and routes startup through the resume-aware bootstrap
 - `src/repl/bootstrap.ts:69-113` — fresh and resumed boot flows are modeled as separate bootstrap modes
 - `src/repl.ts:81-115` — REPL loads the selected bootstrap mode before entering the interactive loop
+
+---
+
+## Going Further - Model Switching
+
+### Q1: Why use a getter function instead of a static value for the model in the subagent tool?
+
+**Why it matters:** The subagent tool is registered once at REPL startup. If it captures the model as a string at registration time, switching models mid-session wouldn't propagate to subagent calls — they'd keep using the original model.
+
+**What we learned:** This is a classic closure vs. late-binding decision. When state can change after an object is constructed, consumers need to read the current value at call time rather than capturing it at construction time. We solved this by changing `SubagentToolConfig.model: string` to `SubagentToolConfig.getModel: () => string`. The subagent tool calls `config.getModel()` when executing, not when being created. The same principle applies to the REPL's `handleSlashCommand` options — `getModel`/`setModel` callbacks let the command handler read and mutate the REPL's mutable `model` variable without holding a stale copy.
+
+**Demonstrated in:**
+- `src/subagent/tool.ts:5` — `getModel: () => string` replaces `model: string` in `SubagentToolConfig`
+- `src/subagent/tool.ts:36` — `config.getModel()` called at execution time, not construction
+- `src/repl.ts:34-39` — subagent tool registered with `getModel: () => model` closure
+- `src/repl.ts:108` — `let model` (mutable) replaces `const model`
+- `src/repl/commands.ts:16-17` — `getModel`/`setModel` callbacks in `HandleSlashCommandOptions`
+- `src/repl/commands.ts:53-62` — `/model` command shows current model or switches to a new one

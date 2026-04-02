@@ -96,7 +96,8 @@ describe("loadConfig", () => {
     });
 
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("always"),
+      "Warning: invalid permission value for tool",
+      expect.objectContaining({ tool: "bash", permission: "always" }),
     );
     expect(result.permissions?.bash).toBeUndefined();
     expect(result.permissions?.write_file).toBe("prompt");

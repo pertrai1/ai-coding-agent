@@ -31,7 +31,9 @@ Type a message and press Enter. Responses stream to the terminal as they're gene
 
 Useful built-in commands:
 
-- `/status` shows current context usage
+- `/status` shows current model, context usage, and session stats
+- `/model` shows the current model
+- `/model <model-id>` switches to a different model mid-session (takes effect on the next API call)
 - `/remember <fact>` stores a durable project memory
 - `/recall [query]` lists stored memories or searches them
 - `/forget <memoryId>` removes a stored memory
