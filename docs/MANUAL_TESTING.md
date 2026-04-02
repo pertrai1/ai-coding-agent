@@ -645,3 +645,63 @@ rm -rf .ai-agent
 **Expected:** The CLI prints an error explaining that the saved session was not found and exits without showing the REPL prompt.
 
 **Pass criteria:** No interactive prompt appears. The command exits immediately with an error message.
+
+---
+
+## Step 8 - Plan Mode
+
+### Test 8.1: Start with `--plan` flag
+
+**Goal:** Verify the agent starts in plan mode and blocks mutating tools while allowing read-only exploration.
+
+**Steps:**
+
+1. Start the agent with `npm run dev -- --plan`
+2. Verify the startup banner shows `📋 Plan mode active — mutating tools are disabled.`
+3. Type: `Read the contents of package.json`
+4. Verify the agent reads the file successfully (no approval prompt — `read_file` is still `allow`)
+5. Type: `Create a file at playground/test.txt with the text "hello"`
+
+**Expected:** The `read_file` call in step 3 works normally. The `write_file` call in step 5 is denied — the agent receives a denial result and should explain that it cannot make changes in plan mode. No approval prompt appears for the denied tool (it is blocked outright, not prompted).
+
+**Pass criteria:** Read-only tools work. Mutating tools (`write_file`, `edit_file`, `bash`) are denied without prompting. The agent stays alive and continues accepting input.
+
+---
+
+### Test 8.2: Toggle plan mode at runtime with `/plan`
+
+**Goal:** Verify the `/plan` slash command toggles plan mode on and off.
+
+**Steps:**
+
+1. Start the agent normally with `npm run dev` (no `--plan` flag)
+2. Type: `/plan`
+3. Verify the output: `Plan mode ON — mutating tools disabled.`
+4. Type: `Run the command "echo hi" using bash`
+5. Verify the bash tool is denied (no approval prompt)
+6. Type: `/plan`
+7. Verify the output: `Plan mode OFF — mutating tools re-enabled.`
+8. Type: `Run the command "echo hi" using bash`
+9. Verify the bash tool now prompts for approval as normal
+
+**Expected:** The first `/plan` enables plan mode and blocks mutating tools. The second `/plan` disables it and restores normal permissions. The toggle can be repeated any number of times.
+
+**Pass criteria:** Each `/plan` toggles the state. Mutating tools are denied when on, prompted when off. Read-only tools are unaffected throughout.
+
+---
+
+### Test 8.3: Plan mode blocks mutating tools with helpful feedback
+
+**Goal:** Verify that blocked tools in plan mode return a clear message to the agent (not a crash or silent failure).
+
+**Steps:**
+
+1. Start the agent with `npm run dev -- --plan`
+2. Type: `Edit the file src/cli.ts and change the first comment to say "modified"`
+3. Observe the agent's response
+4. Type: `Search for all TypeScript files in src/`
+5. Observe the agent's response
+
+**Expected:** In step 3, the agent acknowledges it cannot make edits because plan mode is active. It may suggest turning off plan mode or describe what it would do. In step 5, the `glob` tool works normally and returns results.
+
+**Pass criteria:** The agent does not crash or hang when a mutating tool is denied. It communicates the restriction clearly. Read-only tools continue to function.

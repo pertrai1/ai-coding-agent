@@ -29,12 +29,34 @@ npm run dev
 
 Type a message and press Enter. Responses stream to the terminal as they're generated. Type `exit` or `quit` to leave, or press `Ctrl+C`.
 
-Useful built-in commands:
+### Plan mode
+
+Start in plan mode to explore a codebase without making changes:
+
+```bash
+npm run dev -- --plan
+```
+
+Plan mode blocks mutating tools (`edit_file`, `write_file`, `bash`, `subagent`) while keeping read-only tools (`read_file`, `glob`, `grep`) available. Use it when you want the agent to investigate, analyze, or propose a plan before executing any changes.
+
+Toggle plan mode at runtime with the `/plan` slash command:
+
+```
+> /plan
+Plan mode ON — mutating tools disabled.
+> /plan
+Plan mode OFF — mutating tools re-enabled.
+```
+
+### Built-in commands
 
 - `/status` shows current context usage
+- `/plan` toggles plan mode on/off
 - `/remember <fact>` stores a durable project memory
 - `/recall [query]` lists stored memories or searches them
 - `/forget <memoryId>` removes a stored memory
+
+### Resuming a session
 
 To resume a saved session:
 
