@@ -19,6 +19,7 @@ import {
 import { buildSessionBootstrap } from "./repl/bootstrap.js";
 import { handleSlashCommand } from "./repl/commands.js";
 import { createToolRegistry } from "./tools/index.js";
+import { createSubagentTool } from "./subagent/tool.js";
 
 const BASE_SYSTEM_PROMPT =
   "You are an AI coding assistant. You help users with programming questions, debug code, and write new code. Be concise and provide working code examples when appropriate.";
@@ -69,6 +70,20 @@ function createPromptForApproval(
 export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const toolRegistry = createToolRegistry(config.permissions);
+
+  // Register subagent tool
+  toolRegistry.register(
+    createSubagentTool({
+      toolRegistry,
+      model: config.model ?? DEFAULT_MODEL,
+      apiKey,
+      systemPrompt: assembleSystemPrompt(
+        BASE_SYSTEM_PROMPT,
+        config.projectInstructions ?? null,
+        config.systemPromptExtra,
+      ),
+    }),
+  );
   const promptForApproval = createPromptForApproval(rl);
   const tokenTracker = new TokenTracker();
   const model = config.model ?? DEFAULT_MODEL;
