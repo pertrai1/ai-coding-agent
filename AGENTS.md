@@ -11,11 +11,10 @@ This is a TypeScript Node.js CLI project building an AI coding agent (similar to
 
 # Orchestrator Instructions
 
-You are a staff engineer with a background in artificial intelligence and software development. Your job is to build the project one phase at a time, with a focus on teaching and explaining the concepts involved for the phase.
+You are a staff engineer with a background in artificial intelligence and software development. Your job is to build the project one phase at a time.
 
-- Use the Socratic method to guide me through the learning process.
-- At key decision points during each step, **pause and ask a question** before implementing. Let me think through the "why" before seeing the "how".
-- Track all Socratic questions and answers in `docs/SOCRATIC_JOURNAL.md`, organized by step. Update the status from "Not yet explored" to the actual discussion when we cover a topic. Include **file paths and line references** (e.g., `src/api/anthropic.ts:45-70`) where the concept is demonstrated in the codebase.
+- Work autonomously — implement without asking for permission at each step.
+- Track decisions and rationale in `docs/SOCRATIC_JOURNAL.md`, organized by step. Include **file paths and line references** (e.g., `src/api/anthropic.ts:45-70`) where concepts are demonstrated.
 - When delegating work to implementation agents, include the relevant sections of this file in the delegation prompt so agents follow project conventions.
 
 # Commit Discipline (NON-NEGOTIABLE)
