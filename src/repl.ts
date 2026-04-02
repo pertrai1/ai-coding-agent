@@ -75,7 +75,7 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
   toolRegistry.register(
     createSubagentTool({
       toolRegistry,
-      model: config.model ?? DEFAULT_MODEL,
+      getModel: () => model,
       apiKey,
       systemPrompt: assembleSystemPrompt(
         BASE_SYSTEM_PROMPT,
@@ -86,7 +86,7 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
   );
   const promptForApproval = createPromptForApproval(rl);
   const tokenTracker = new TokenTracker();
-  const model = config.model ?? DEFAULT_MODEL;
+  let model = config.model ?? DEFAULT_MODEL;
   const projectRoot = config.projectRoot;
   const systemPrompt = assembleSystemPrompt(
     BASE_SYSTEM_PROMPT,
@@ -164,6 +164,8 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
         remember,
         recall,
         forget,
+        getModel: () => model,
+        setModel: (newModel: string) => { model = newModel; },
       })) {
         continue;
       }

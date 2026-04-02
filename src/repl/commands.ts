@@ -10,9 +10,11 @@ type HandleSlashCommandOptions = {
   remember: (projectRoot: string, text: string) => Promise<{ id: string; text: string }>;
   recall: (projectRoot: string, query?: string) => Promise<MemoryIndexEntry[]>;
   forget: (projectRoot: string, memoryId: string) => Promise<{ removed: boolean }>;
+  getModel: () => string;
+  setModel: (modelId: string) => void;
 };
 
-function formatStatus(tracker: TokenTracker): string {
+function formatStatus(tracker: TokenTracker, model: string): string {
   const stats = tracker.getStats();
   const percentage = stats.usagePercentage.toFixed(1);
   const warning = stats.usagePercentage >= 75
@@ -20,6 +22,7 @@ function formatStatus(tracker: TokenTracker): string {
     : chalk.green("Status: OK");
 
   return [
+    `Model: ${model}`,
     `Context: ${stats.currentContextCombinedTokens.toLocaleString()} / ${stats.contextWindowLimit.toLocaleString()} tokens (${percentage}%)`,
     `Session total: ${stats.sessionCombinedTokens.toLocaleString()} tokens`,
     `Messages: ${stats.messageCount} turns`,
@@ -40,10 +43,22 @@ export async function handleSlashCommand(
     return false;
   }
 
-  const { projectRoot, tracker, writeLine, remember, recall, forget } = options;
+  const { projectRoot, tracker, writeLine, remember, recall, forget, getModel, setModel } = options;
 
   if (trimmed.toLowerCase() === "/status") {
-    writeLine(formatStatus(tracker));
+    writeLine(formatStatus(tracker, getModel()));
+    return true;
+  }
+
+  if (trimmed.toLowerCase().startsWith("/model")) {
+    const arg = trimmed.slice("/model".length).trim();
+    if (arg.length === 0) {
+      writeLine(`Current model: ${getModel()}`);
+    } else {
+      const previousModel = getModel();
+      setModel(arg);
+      writeLine(`Model switched: ${previousModel} → ${arg}`);
+    }
     return true;
   }
 

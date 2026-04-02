@@ -3,7 +3,7 @@ import { spawnSubagent, formatSubagentResult } from "./index.js";
 
 export type SubagentToolConfig = {
   toolRegistry: Parameters<typeof spawnSubagent>[0]["toolRegistry"];
-  model: string;
+  getModel: () => string;
   apiKey: string;
   systemPrompt?: string;
 };
@@ -43,7 +43,7 @@ export function createSubagentTool(config: SubagentToolConfig): ToolRegistration
         const result = await spawnSubagent({
           task,
           toolRegistry: config.toolRegistry,
-          model: config.model,
+          model: config.getModel(),
           apiKey: config.apiKey,
           systemPrompt: config.systemPrompt,
         });
