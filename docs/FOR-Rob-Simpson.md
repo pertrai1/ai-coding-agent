@@ -280,3 +280,57 @@ Good engineers do not just ask, "Can I persist this?" They ask, "What kind of th
 Durable memories are curated facts. Session transcripts are exact conversation state. Session summaries are compressed breadcrumbs for future work. Each one exists because it serves a different operational need.
 
 This is also a nice example of test-driven architecture. We wrote one failing anchor test for every Step 7 spec scenario first. That forced the implementation to grow along stable seams instead of becoming one giant `repl.ts` blob with filesystem calls sprinkled everywhere.
+
+---
+
+# Step 8: Subagents and Plan Mode
+
+Step 8 adds two major features to the agent. First, subagents — separate agent instances that work on focused tasks in isolation and report back. Second, plan mode — a way to tell the agent "think before you act" by locking it into a read-only architect role until you approve its plan.
+
+Subagents were already done. This entry covers the plan mode work, which is the more architecturally interesting part.
+
+## Technical Architecture
+
+Plan mode adds a second operational state to the REPL. When active, the agent can read files, search code, and ask questions, but it cannot make any changes. The model produces a plan, the user reviews it, and only after approval does the agent switch back to execution mode.
+
+The implementation sits across three key integration points:
+
+**The agent loop** (`src/agent.ts:100`) gets an `isToolDenied` callback. This is checked *before* the existing permission system. If the callback says deny, the tool is rejected immediately — regardless of whether it would normally be allowed or prompt. This is the hard enforcement layer.
+
+**The REPL** (`src/repl.ts:125`) owns the `planMode: boolean` state. When true, it passes three things to the agent loop: the `isToolDenied` callback (denying `write_file`, `edit_file`, `bash`), a modified system prompt (appending `PLAN_MODE_PROMPT`), and after the loop completes, it runs the approval flow prompt.
+
+**The slash command handler** (`src/repl/commands.ts:56-69`) handles `/plan` (activate) and `/plan off` (deactivate). The `/status` command also shows whether plan mode is on.
+
+The approval flow is deliberately simple: after the agent responds in plan mode, the user sees a prompt asking to approve (`y`), reject (`n`), or provide modifications (any other text). Approval deactivates plan mode and appends a "proceed with implementation" message to history. Rejection and modifications keep plan mode active and add the feedback as a new user message.
+
+## Codebase Structure
+
+Plan mode touches existing files, not new ones:
+
+* `src/agent.ts:100,165-169` — the `isToolDenied` callback option and its check in the tool execution loop
+* `src/repl.ts:27-35,125,153,193-229` — plan mode constants, state variable, dynamic prompt, system prompt construction, tool denial callback, and approval flow
+* `src/repl/commands.ts:18-19,52-69` — new `getPlanMode`/`setPlanMode` options and `/plan`/`/plan off` command handling
+* `src/__tests__/agent-plan-mode.test.ts` — unit tests for the `isToolDenied` callback
+* `src/__tests__/commands-plan.test.ts` — unit tests for the slash commands
+
+## Technologies and Why
+
+We used a callback pattern (`isToolDenied`) instead of modifying the tool registry. The registry is created once at startup and shared with subagents. Mutating it for mode switches would be fragile and could leak state. A callback is cleaner — it's scoped to a single agent loop invocation and disappears when the loop returns.
+
+We used a conversational approval flow instead of a structured plan schema. The LLM naturally produces numbered plans. Conversation history already captures everything. Adding a JSON plan format would add complexity without adding capability — the human reads the plan, not a parser.
+
+The plan mode prompt indicator (`[plan] > `) is a small but important UX detail. You should always be able to glance at the terminal and know what mode you're in without running a command.
+
+## Lessons Learned
+
+The biggest lesson is the callback-as-lifecycle-hook pattern. The agent loop doesn't need to know *why* a tool is denied. It just needs to know *that* it's denied. This keeps the agent loop generic — you could reuse the same `isToolDenied` mechanism for other modes (a dry-run mode, a restricted mode for untrusted inputs, etc.) without touching the loop's internals.
+
+Another lesson: separation of mode state from execution state. The REPL owns mode state and passes the consequences down. The agent loop remains a pure execution engine. This makes both layers independently testable — you can test tool denial by passing a callback, and you can test slash commands by passing mock callbacks, without needing to simulate the other layer.
+
+A practical lesson: when adding new required fields to an options type (`HandleSlashCommandOptions`), check all existing callers immediately. The typechecker caught the missing fields in test files, but only because we ran `npm run typecheck` right away. If you wait until the end, you accumulate a pile of type errors that are harder to untangle.
+
+## How Good Engineers Think
+
+Good engineers ask, "Where does this state belong?" before they start coding. Plan mode state belongs in the REPL because the REPL is the orchestrator — it manages user interaction, mode switches, and the flow between planning and execution. The agent loop is a worker. Workers don't decide what mode they're in.
+
+Good engineers also ask, "What's the minimum interface I need?" The `isToolDenied` callback is a single function that takes a string and returns a boolean. That's the minimum contract for "should this tool be blocked?" Any extra complexity — knowing why, knowing the mode, knowing the user — would leak concerns across boundaries.
