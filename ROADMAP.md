@@ -135,13 +135,13 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 - [x] Give each subagent access to the same tool catalog as the main agent.
 - [x] Collect subagent outputs and return a merged parent summary.
 - [x] Keep subagent tool-call traces out of main chat transcript by default.
-- [ ] Add a plan-mode switch that disables mutating tools.
-- [ ] Use a planner-oriented system prompt while in plan mode.
-- [ ] Add explicit user approval flow to exit plan mode into execution mode.
-- [ ] Execute approved plans as ordered actionable steps.
-- [ ] Add a manual test where plan mode produces a plan without edits.
-- [ ] Add a manual test where plan approval leads to controlled implementation.
-- [ ] Add a manual test where plan rejection or modification revises the plan without execution.
+- [x] Add a plan-mode switch that disables mutating tools.
+- [x] Use a planner-oriented system prompt while in plan mode.
+- [x] Add explicit user approval flow to exit plan mode into execution mode.
+- [x] Execute approved plans as ordered actionable steps.
+- [x] Add a manual test where plan mode produces a plan without edits.
+- [x] Add a manual test where plan approval leads to controlled implementation.
+- [x] Add a manual test where plan rejection or modification revises the plan without execution.
 
 ## Going Further - Stretch Phases
 
