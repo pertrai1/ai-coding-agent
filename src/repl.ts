@@ -226,6 +226,18 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
             });
             tokenTracker.addMessage();
             shouldPersistSession = true;
+
+            await runAgentLoop({
+              messages,
+              toolRegistry,
+              model,
+              apiKey,
+              system: systemPrompt,
+              write: (text) => process.stdout.write(text),
+              promptForApproval,
+              tokenTracker,
+            });
+            process.stdout.write("\n");
           } else if (approvalTrimmed === "n") {
             messages.push({
               role: "user",
@@ -233,6 +245,19 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
             });
             tokenTracker.addMessage();
             shouldPersistSession = true;
+
+            await runAgentLoop({
+              messages,
+              toolRegistry,
+              model,
+              apiKey,
+              system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
+              write: (text) => process.stdout.write(text),
+              promptForApproval,
+              tokenTracker,
+              isToolDenied: (toolName: string) => MUTATING_TOOLS.has(toolName),
+            });
+            process.stdout.write("\n");
           } else {
             messages.push({
               role: "user",
@@ -240,6 +265,19 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
             });
             tokenTracker.addMessage();
             shouldPersistSession = true;
+
+            await runAgentLoop({
+              messages,
+              toolRegistry,
+              model,
+              apiKey,
+              system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
+              write: (text) => process.stdout.write(text),
+              promptForApproval,
+              tokenTracker,
+              isToolDenied: (toolName: string) => MUTATING_TOOLS.has(toolName),
+            });
+            process.stdout.write("\n");
           }
         }
       } catch (error: unknown) {
