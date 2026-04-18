@@ -16,6 +16,8 @@ function createCommandOptions(overrides: {
     forget: vi.fn(),
     getModel: overrides.getModel ?? (() => "claude-sonnet-4-20250514"),
     setModel: overrides.setModel ?? vi.fn(),
+    getPlanMode: () => false,
+    setPlanMode: vi.fn(),
   };
 }
 

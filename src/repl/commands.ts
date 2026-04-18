@@ -12,22 +12,26 @@ type HandleSlashCommandOptions = {
   forget: (projectRoot: string, memoryId: string) => Promise<{ removed: boolean }>;
   getModel: () => string;
   setModel: (modelId: string) => void;
+  getPlanMode: () => boolean;
+  setPlanMode: (active: boolean) => void;
 };
 
-function formatStatus(tracker: TokenTracker, model: string): string {
+function formatStatus(tracker: TokenTracker, model: string, planMode: boolean): string {
   const stats = tracker.getStats();
   const percentage = stats.usagePercentage.toFixed(1);
   const warning = stats.usagePercentage >= 75
     ? chalk.yellow("Status: Approaching limit - compression will trigger soon")
     : chalk.green("Status: OK");
+  const modeLine = planMode ? "Mode: plan" : null;
 
   return [
     `Model: ${model}`,
+    modeLine,
     `Context: ${stats.currentContextCombinedTokens.toLocaleString()} / ${stats.contextWindowLimit.toLocaleString()} tokens (${percentage}%)`,
     `Session total: ${stats.sessionCombinedTokens.toLocaleString()} tokens`,
     `Messages: ${stats.messageCount} turns`,
     warning,
-  ].join("\n");
+  ].filter((line): line is string => line !== null).join("\n");
 }
 
 function formatMemories(memories: MemoryIndexEntry[]): string[] {
@@ -43,10 +47,22 @@ export async function handleSlashCommand(
     return false;
   }
 
-  const { projectRoot, tracker, writeLine, remember, recall, forget, getModel, setModel } = options;
+  const { projectRoot, tracker, writeLine, remember, recall, forget, getModel, setModel, getPlanMode, setPlanMode } = options;
 
   if (trimmed.toLowerCase() === "/status") {
-    writeLine(formatStatus(tracker, getModel()));
+    writeLine(formatStatus(tracker, getModel(), getPlanMode()));
+    return true;
+  }
+
+  if (trimmed.toLowerCase() === "/plan off") {
+    setPlanMode(false);
+    writeLine(chalk.cyan("Plan mode deactivated."));
+    return true;
+  }
+
+  if (trimmed.toLowerCase() === "/plan") {
+    setPlanMode(true);
+    writeLine(chalk.cyan("Plan mode activated. Mutating tools are disabled. Produce a plan for the user to approve."));
     return true;
   }
 

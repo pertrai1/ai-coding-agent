@@ -294,3 +294,44 @@ That is easier to reason about, easier to test, and safer than letting a live RE
 - `src/repl.ts:108` — `let model` (mutable) replaces `const model`
 - `src/repl/commands.ts:16-17` — `getModel`/`setModel` callbacks in `HandleSlashCommandOptions`
 - `src/repl/commands.ts:53-62` — `/model` command shows current model or switches to a new one
+
+---
+
+## Step 8 - Subagents and Plan Mode
+
+### Q1: Why use a callback (`isToolDenied`) instead of modifying the tool registry for plan mode?
+
+**Why it matters:** Plan mode needs to dynamically deny mutating tools at runtime. The tool registry is a static structure created once at startup. Mutating it for mode switches would couple mode state to the registry and risk leaking state between toggles.
+
+**What we learned:** The callback pattern mirrors the existing `promptForApproval` callback on `AgentLoopOptions`. By adding `isToolDenied?: (toolName: string) => boolean`, the agent loop checks it before the permission check — no registry mutation needed. When plan mode is off, the callback returns `false` (or is absent), and the existing permission logic runs unchanged. This keeps the agent loop generic and testable: it doesn't need to know *why* a tool is denied, just *that* it is.
+
+**Demonstrated in:**
+- `src/agent.ts:100` — `isToolDenied` optional callback on `AgentLoopOptions`
+- `src/agent.ts:165-169` — denial check runs before the existing permission flow
+- `src/repl.ts:195-197` — REPL passes a closure that checks `planMode` and `MUTATING_TOOLS`
+
+---
+
+### Q2: Why does plan mode state live in the REPL instead of the agent loop?
+
+**Why it matters:** Plan mode is a REPL-level concern — it's toggled by slash commands, displayed in the prompt and status, and controls the approval flow after the agent loop returns. The agent loop is a pure execution engine that processes messages and tools; it shouldn't manage UI state.
+
+**What we learned:** Separation of concerns. The REPL owns mode state (`planMode: boolean`), prompt construction (appending `PLAN_MODE_PROMPT`), and the approval interaction. It passes the consequences of that state down to the agent loop via options (`isToolDenied`, `system`). This means the agent loop remains testable in isolation — you can verify tool denial by passing a callback, without simulating slash commands or REPL interactions.
+
+**Demonstrated in:**
+- `src/repl.ts:125` — `let planMode = false` in REPL scope
+- `src/repl.ts:153` — dynamic prompt: `planMode ? PLAN_PROMPT : NORMAL_PROMPT`
+- `src/repl.ts:193-197` — system prompt and `isToolDenied` derived from `planMode`
+- `src/repl.ts:204-229` — approval flow runs after agent loop returns, only when `planMode` is true
+
+---
+
+### Q3: Why is the plan approval flow conversational instead of structured?
+
+**Why it matters:** Plans could be stored in a JSON schema with explicit steps, statuses, and dependencies. Instead, we keep plans as freeform text in conversation history and use a simple `y/n/text` prompt.
+
+**What we learned:** The conversational approach leverages what already exists — the LLM naturally produces numbered plans, and conversation history preserves full context. When the user approves, their approval message is appended to history, giving the model everything it needs to execute. No extra data structures, no serialization, no risk of schema mismatch with what the model actually generated. The trade-off is less programmatic control over individual plan steps, but for a coding agent this is the right trade-off: the human is the orchestrator, not a script.
+
+**Demonstrated in:**
+- `src/repl.ts:206-229` — three-way approval prompt: `y` (approve and exit plan mode), `n` (reject and stay), or freeform text (feedback that revises the plan)
+- `src/repl.ts:211-213` — approval appends "Plan approved. Please proceed with implementation." to conversation history

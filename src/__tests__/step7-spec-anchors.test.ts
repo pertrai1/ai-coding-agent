@@ -574,6 +574,8 @@ describe("Step 7 spec anchors", () => {
         forget: vi.fn(),
         getModel: () => "claude-sonnet-4-20250514",
         setModel: vi.fn(),
+        getPlanMode: () => false,
+        setPlanMode: vi.fn(),
       });
 
       expect(handled).toBe(true);
@@ -595,6 +597,8 @@ describe("Step 7 spec anchors", () => {
         forget: vi.fn(),
         getModel: () => "claude-sonnet-4-20250514",
         setModel: vi.fn(),
+        getPlanMode: () => false,
+        setPlanMode: vi.fn(),
       });
 
       expect(handled).toBe(true);
@@ -618,6 +622,8 @@ describe("Step 7 spec anchors", () => {
         forget: vi.fn(),
         getModel: () => "claude-sonnet-4-20250514",
         setModel: vi.fn(),
+        getPlanMode: () => false,
+        setPlanMode: vi.fn(),
       });
 
       expect(handled).toBe(true);
@@ -639,6 +645,8 @@ describe("Step 7 spec anchors", () => {
         forget,
         getModel: () => "claude-sonnet-4-20250514",
         setModel: vi.fn(),
+        getPlanMode: () => false,
+        setPlanMode: vi.fn(),
       });
 
       expect(handled).toBe(true);

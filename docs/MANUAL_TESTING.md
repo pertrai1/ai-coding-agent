@@ -299,7 +299,14 @@ The following commands are available in the REPL:
 
 | Command | Description |
 |---------|-------------|
-| `/status` | Display current context window usage (tokens, percentage, message count) |
+| `/status` | Display current context window usage (tokens, percentage, message count) and mode |
+| `/plan` | Activate plan mode (read-only architect, mutating tools disabled) |
+| `/plan off` | Deactivate plan mode (return to normal execution) |
+| `/model` | Show current model |
+| `/model <id>` | Switch to a different model |
+| `/remember <fact>` | Store a durable memory |
+| `/recall [query]` | List or search memories |
+| `/forget <id>` | Remove a stored memory |
 | `exit` or `quit` | Exit the REPL |
 
 ### `/status` Command
@@ -645,3 +652,65 @@ rm -rf .ai-agent
 **Expected:** The CLI prints an error explaining that the saved session was not found and exits without showing the REPL prompt.
 
 **Pass criteria:** No interactive prompt appears. The command exits immediately with an error message.
+
+---
+
+## Step 8 - Subagents and Plan Mode
+
+### Test 8.1: Plan mode produces a plan without edits
+
+**Goal:** Verify that activating plan mode disables mutating tools and the agent produces a plan instead of making changes.
+
+**Steps:**
+
+1. Start the agent with `npm run dev`
+2. Type: `/plan`
+3. Verify the prompt changes from `> ` to `[plan] > `
+4. Verify a confirmation message appears ("Plan mode activated")
+5. Type: `Add a hello() function to src/tools/readFileTool.ts that logs "hello"`
+6. Wait for the response
+
+**Expected:** The agent reads the file (using `read_file`), analyzes it, and produces a plan describing the steps it would take. It should NOT call `write_file`, `edit_file`, or `bash`. If it tries, those tools should be denied with a plan-mode error message.
+
+**Pass criteria:** The agent produces a numbered plan. No file edits occur. Mutating tool calls are denied. The prompt stays as `[plan] > `.
+
+---
+
+### Test 8.2: Plan approval leads to controlled implementation
+
+**Goal:** Verify that approving a plan exits plan mode and triggers implementation.
+
+**Steps:**
+
+1. Start the agent with `npm run dev`
+2. Type: `/plan`
+3. Ask the agent to do something specific (e.g., `What changes would you make to add a trailing newline to the end of the read_file tool output?`)
+4. Wait for the plan response
+5. When the approval prompt appears, type: `y`
+6. Verify the prompt changes back to `> `
+7. Observe the agent implementing the approved plan
+
+**Expected:** After typing `y`, plan mode deactivates, the prompt returns to `> `, and the agent proceeds to implement the plan using mutating tools (which are now re-enabled).
+
+**Pass criteria:** Plan mode deactivates on approval. The prompt reverts to `> `. The agent implements the plan using tools like `edit_file` or `write_file`. The changes match what was planned.
+
+---
+
+### Test 8.3: Plan rejection or modification revises the plan
+
+**Goal:** Verify that rejecting or modifying a plan keeps plan mode active and the agent revises without executing.
+
+**Steps:**
+
+1. Start the agent with `npm run dev`
+2. Type: `/plan`
+3. Ask: `Plan how to refactor the tool registry to support async tool definitions`
+4. Wait for the plan response
+5. When the approval prompt appears, type: `I don't want async definitions. Just add a way to list tool names.`
+6. Wait for the revised response
+7. Verify the prompt is still `[plan] > `
+8. Type: `n` at the next approval prompt
+
+**Expected:** After typing the modification text (step 5), the agent stays in plan mode and produces a revised plan that addresses the feedback. After typing `n` (step 8), the agent stays in plan mode and acknowledges the rejection. No code changes are made at any point.
+
+**Pass criteria:** Plan mode stays active throughout. The agent revises its plan based on feedback. After rejection, the agent acknowledges it and waits for further input. No mutating tools are called. The prompt remains `[plan] > `.

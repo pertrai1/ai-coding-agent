@@ -97,10 +97,11 @@ export type AgentLoopOptions = {
     toolName: string,
     toolInput: Record<string, unknown>,
   ) => Promise<boolean>;
+  isToolDenied?: (toolName: string) => boolean;
 };
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
-  const { messages, toolRegistry, model, apiKey, system, write, tokenTracker, promptForApproval } = options;
+  const { messages, toolRegistry, model, apiKey, system, write, tokenTracker, promptForApproval, isToolDenied } = options;
   const toolDefinitions = toolRegistry.getDefinitions();
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
@@ -159,6 +160,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
       if (!registration) {
         result = {
           content: `Error: Tool "${toolUse.name}" not found.`,
+          isError: true,
+        };
+      } else if (isToolDenied?.(toolUse.name)) {
+        result = {
+          content: `Tool call denied by plan mode: "${toolUse.name}" is not allowed while planning.`,
           isError: true,
         };
       } else if (registration.permission === "deny") {

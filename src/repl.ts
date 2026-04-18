@@ -23,10 +23,21 @@ import { createSubagentTool } from "./subagent/tool.js";
 
 const BASE_SYSTEM_PROMPT =
   "You are an AI coding assistant. You help users with programming questions, debug code, and write new code. Be concise and provide working code examples when appropriate.";
+
+const PLAN_MODE_PROMPT = `You are currently in PLAN MODE. In this mode you must:
+- Analyze the codebase using read-only tools (read_file, glob, grep)
+- Ask the user clarifying questions if needed
+- Produce a clear, ordered plan of actionable steps
+- NOT make any code changes (write_file, edit_file, and bash are disabled)
+
+When you have finished your analysis, present a numbered plan of steps you would take. The user will review and approve before you proceed.`;
+
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
-const PROMPT = "> ";
+const PLAN_PROMPT = "[plan] > ";
+const NORMAL_PROMPT = "> ";
 const EXIT_COMMANDS = new Set(["exit", "quit"]);
 const STATUS_COMMAND = "/status";
+const MUTATING_TOOLS = new Set(["write_file", "edit_file", "bash"]);
 
 export function isExitCommand(input: string): boolean {
   return EXIT_COMMANDS.has(input.trim().toLowerCase());
@@ -121,6 +132,7 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
   const sessionCreatedAt =
     bootstrap.mode === "resume" ? bootstrap.transcript.createdAt : new Date().toISOString();
   let shouldPersistSession = bootstrap.mode === "resume" && bootstrap.transcript.messages.length > 0;
+  let planMode = false;
 
   if (bootstrap.mode === "resume") {
     tokenTracker.hydrateSession(
@@ -136,7 +148,7 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
     while (true) {
       let input: string;
       try {
-        input = await rl.question(PROMPT);
+        input = await rl.question(planMode ? PLAN_PROMPT : NORMAL_PROMPT);
       } catch (error: unknown) {
         if (isAbortError(error)) {
           process.stdout.write("\n");
@@ -166,6 +178,8 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
         forget,
         getModel: () => model,
         setModel: (newModel: string) => { model = newModel; },
+        getPlanMode: () => planMode,
+        setPlanMode: (active: boolean) => { planMode = active; },
       })) {
         continue;
       }
@@ -178,18 +192,94 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
       shouldPersistSession = true;
 
       try {
+        const activeSystemPrompt = planMode
+          ? systemPrompt + "\n\n" + PLAN_MODE_PROMPT
+          : systemPrompt;
+
         await runAgentLoop({
           messages,
           toolRegistry,
           model,
           apiKey,
-          system: systemPrompt,
+          system: activeSystemPrompt,
           write: (text) => process.stdout.write(text),
           promptForApproval,
           tokenTracker,
+          isToolDenied: planMode
+            ? (toolName: string) => MUTATING_TOOLS.has(toolName)
+            : undefined,
         });
 
         process.stdout.write("\n");
+
+        if (planMode) {
+          const approval = await rl.question(
+            chalk.yellow("\n📋 Approve this plan? (y to approve / n to reject / or type modifications): "),
+          );
+          const approvalTrimmed = approval.trim().toLowerCase();
+
+          if (approvalTrimmed === "y") {
+            planMode = false;
+            messages.push({
+              role: "user",
+              content: [{ type: "text", text: "Plan approved. Please proceed with implementation." }],
+            });
+            tokenTracker.addMessage();
+            shouldPersistSession = true;
+
+            await runAgentLoop({
+              messages,
+              toolRegistry,
+              model,
+              apiKey,
+              system: systemPrompt,
+              write: (text) => process.stdout.write(text),
+              promptForApproval,
+              tokenTracker,
+            });
+            process.stdout.write("\n");
+          } else if (approvalTrimmed === "n") {
+            messages.push({
+              role: "user",
+              content: [{ type: "text", text: "Plan rejected. Please revise the plan." }],
+            });
+            tokenTracker.addMessage();
+            shouldPersistSession = true;
+
+            await runAgentLoop({
+              messages,
+              toolRegistry,
+              model,
+              apiKey,
+              system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
+              write: (text) => process.stdout.write(text),
+              promptForApproval,
+              tokenTracker,
+              isToolDenied: (toolName: string) => MUTATING_TOOLS.has(toolName),
+            });
+            process.stdout.write("\n");
+          } else {
+            messages.push({
+              role: "user",
+              content: [{ type: "text", text: `Plan feedback: ${approval.trim()}` }],
+            });
+            tokenTracker.addMessage();
+            shouldPersistSession = true;
+
+            await runAgentLoop({
+              messages,
+              toolRegistry,
+              model,
+              apiKey,
+              system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
+              write: (text) => process.stdout.write(text),
+              promptForApproval,
+              tokenTracker,
+              isToolDenied: (toolName: string) => MUTATING_TOOLS.has(toolName),
+            });
+            process.stdout.write("\n");
+          }
+        }
       } catch (error: unknown) {
         process.stdout.write("\n");
 
