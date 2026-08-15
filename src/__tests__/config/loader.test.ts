@@ -104,4 +104,34 @@ describe("loadConfigFile", () => {
     });
     expect(result?.model).toBeUndefined();
   });
+
+  it("parses MCP server config entries", async () => {
+    const configPath = join(tempDir, "config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        mcpServers: {
+          filesystem: {
+            command: "npx",
+            args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+            env: { MODE: "test" },
+            enabled: true,
+          },
+        },
+      }),
+    );
+
+    const result = loadConfigFile(configPath);
+
+    expect(result).toEqual({
+      mcpServers: {
+        filesystem: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+          env: { MODE: "test" },
+          enabled: true,
+        },
+      },
+    });
+  });
 });

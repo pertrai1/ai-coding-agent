@@ -4,6 +4,7 @@ import { streamMessage } from "../../api/anthropic.js";
 import { startRepl } from "../../repl.js";
 import { createInterface } from "node:readline/promises";
 import type { ResolvedConfig } from "../../config/types.js";
+import { createMcpManager } from "../../mcp/manager.js";
 
 vi.mock("../../api/anthropic.js", async () => {
   const actual = await vi.importActual<typeof import("../../api/anthropic.js")>(
@@ -18,6 +19,13 @@ vi.mock("../../api/anthropic.js", async () => {
 
 vi.mock("node:readline/promises", () => ({
   createInterface: vi.fn(),
+}));
+
+vi.mock("../../mcp/manager.js", () => ({
+  createMcpManager: vi.fn().mockResolvedValue({
+    warnings: [],
+    close: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 function makeStreamMock() {
@@ -50,6 +58,7 @@ describe("repl config integration", () => {
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -194,5 +203,66 @@ describe("repl config integration", () => {
     // We verify this indirectly: if bash is set to "allow", it should not prompt
     await startRepl("test-key", config);
     // Test passes if no error — the config was accepted
+  });
+
+  it("registers MCP tools before the first model request", async () => {
+    const question = vi.fn<(prompt: string) => Promise<string>>()
+      .mockResolvedValueOnce("hello")
+      .mockResolvedValueOnce("exit");
+
+    vi.mocked(createInterface).mockReturnValue({
+      question,
+      close: vi.fn(),
+    } as never);
+
+    vi.mocked(createMcpManager).mockImplementationOnce(async (options) => {
+      options.toolRegistry.register({
+        definition: {
+          name: "mcp__filesystem__read_file",
+          description: "MCP read file",
+          input_schema: { type: "object", properties: {} },
+        },
+        permission: "prompt",
+        execute: async () => ({ content: "ok" }),
+      });
+      return { warnings: [], close: vi.fn().mockResolvedValue(undefined) } as never;
+    });
+
+    const streamMock = makeStreamMock();
+
+    await startRepl("test-key", {
+      mcpServers: { filesystem: { command: "npx" } },
+    });
+
+    expect(streamMock.mock.calls[0][0].tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "mcp__filesystem__read_file" }),
+      ]),
+    );
+  });
+
+  it("warns about MCP startup failures and closes the manager on exit", async () => {
+    const question = vi.fn<(prompt: string) => Promise<string>>()
+      .mockResolvedValueOnce("exit");
+    const close = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createInterface).mockReturnValue({
+      question,
+      close: vi.fn(),
+    } as never);
+
+    vi.mocked(createMcpManager).mockResolvedValueOnce({
+      warnings: ["Warning: failed to initialize MCP server \"filesystem\": boom"],
+      close,
+    } as never);
+
+    await startRepl("test-key", {
+      mcpServers: { filesystem: { command: "npx" } },
+    });
+
+    expect(console.warn).toHaveBeenCalledWith(
+      "Warning: failed to initialize MCP server \"filesystem\": boom",
+    );
+    expect(close).toHaveBeenCalled();
   });
 });

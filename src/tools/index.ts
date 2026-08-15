@@ -26,40 +26,44 @@ export type ToolRegistration = {
 export type ToolRegistry = {
   register: (tool: ToolRegistration) => void;
   get: (name: string) => ToolRegistration | undefined;
+  getAll: () => ToolRegistration[];
   getDefinitions: () => ToolDefinition[];
 };
 
 export function createToolRegistry(
   permissionOverrides?: Record<string, ToolPermission>,
+  options: { includeDefaults?: boolean } = {},
 ): ToolRegistry {
   const tools = new Map<string, ToolRegistration>();
+  const includeDefaults = options.includeDefaults ?? true;
+
+  function applyPermission(tool: ToolRegistration): ToolRegistration {
+    const permission = permissionOverrides?.[tool.definition.name] ?? tool.permission;
+    return permission === undefined ? tool : { ...tool, permission };
+  }
 
   const registry: ToolRegistry = {
     register(tool: ToolRegistration): void {
-      tools.set(tool.definition.name, tool);
+      tools.set(tool.definition.name, applyPermission(tool));
     },
     get(name: string): ToolRegistration | undefined {
       return tools.get(name);
+    },
+    getAll(): ToolRegistration[] {
+      return Array.from(tools.values());
     },
     getDefinitions(): ToolDefinition[] {
       return Array.from(tools.values()).map((tool) => tool.definition);
     },
   };
 
-  registry.register(readFileTool);
-  registry.register(editFileTool);
-  registry.register(writeFileTool);
-  registry.register(globTool);
-  registry.register(grepTool);
-  registry.register(bashTool);
-
-  if (permissionOverrides) {
-    for (const [toolName, permission] of Object.entries(permissionOverrides)) {
-      const tool = tools.get(toolName);
-      if (tool) {
-        tools.set(toolName, { ...tool, permission });
-      }
-    }
+  if (includeDefaults) {
+    registry.register(readFileTool);
+    registry.register(editFileTool);
+    registry.register(writeFileTool);
+    registry.register(globTool);
+    registry.register(grepTool);
+    registry.register(bashTool);
   }
 
   return registry;

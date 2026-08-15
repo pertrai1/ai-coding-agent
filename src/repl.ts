@@ -7,6 +7,7 @@ import { runAgentLoop } from "./agent.js";
 import { assembleSystemPrompt } from "./config/context.js";
 import type { ResolvedConfig } from "./config/types.js";
 import { TokenTracker } from "./context/tracker.js";
+import { createMcpManager } from "./mcp/manager.js";
 import { loadMemoryBootstrap, remember, recall, forget } from "./persistence/memory.js";
 import {
   createSessionId,
@@ -38,6 +39,7 @@ const NORMAL_PROMPT = "> ";
 const EXIT_COMMANDS = new Set(["exit", "quit"]);
 const STATUS_COMMAND = "/status";
 const MUTATING_TOOLS = new Set(["write_file", "edit_file", "bash"]);
+const MCP_TOOL_PREFIX = "mcp__";
 
 export function isExitCommand(input: string): boolean {
   return EXIT_COMMANDS.has(input.trim().toLowerCase());
@@ -81,20 +83,35 @@ function createPromptForApproval(
 export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const toolRegistry = createToolRegistry(config.permissions);
+  const mcpManager = await createMcpManager({
+    servers: config.mcpServers,
+    toolRegistry,
+  });
+
+  for (const warning of mcpManager.warnings) {
+    console.warn(warning);
+  }
+
+  const subagentRegistry = createToolRegistry(config.permissions, { includeDefaults: false });
+  for (const tool of toolRegistry.getAll()) {
+    if (!tool.definition.name.startsWith(MCP_TOOL_PREFIX)) {
+      subagentRegistry.register(tool);
+    }
+  }
 
   // Register subagent tool
-  toolRegistry.register(
-    createSubagentTool({
-      toolRegistry,
-      getModel: () => model,
-      apiKey,
-      systemPrompt: assembleSystemPrompt(
-        BASE_SYSTEM_PROMPT,
-        config.projectInstructions ?? null,
-        config.systemPromptExtra,
-      ),
-    }),
-  );
+  const subagentTool = createSubagentTool({
+    toolRegistry: subagentRegistry,
+    getModel: () => model,
+    apiKey,
+    systemPrompt: assembleSystemPrompt(
+      BASE_SYSTEM_PROMPT,
+      config.projectInstructions ?? null,
+      config.systemPromptExtra,
+    ),
+  });
+  toolRegistry.register(subagentTool);
+  subagentRegistry.register(subagentTool);
   const promptForApproval = createPromptForApproval(rl);
   const tokenTracker = new TokenTracker();
   let model = config.model ?? DEFAULT_MODEL;
@@ -206,7 +223,9 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
           promptForApproval,
           tokenTracker,
           isToolDenied: planMode
-            ? (toolName: string) => MUTATING_TOOLS.has(toolName)
+            ? (toolName: string) => {
+              return MUTATING_TOOLS.has(toolName) || toolName.startsWith(MCP_TOOL_PREFIX);
+            }
             : undefined,
         });
 
@@ -251,14 +270,16 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
               toolRegistry,
               model,
               apiKey,
-              system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
-              write: (text) => process.stdout.write(text),
-              promptForApproval,
-              tokenTracker,
-              isToolDenied: (toolName: string) => MUTATING_TOOLS.has(toolName),
-            });
-            process.stdout.write("\n");
-          } else {
+               system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
+               write: (text) => process.stdout.write(text),
+               promptForApproval,
+               tokenTracker,
+               isToolDenied: (toolName: string) => {
+                 return MUTATING_TOOLS.has(toolName) || toolName.startsWith(MCP_TOOL_PREFIX);
+               },
+             });
+             process.stdout.write("\n");
+           } else {
             messages.push({
               role: "user",
               content: [{ type: "text", text: `Plan feedback: ${approval.trim()}` }],
@@ -271,14 +292,16 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
               toolRegistry,
               model,
               apiKey,
-              system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
-              write: (text) => process.stdout.write(text),
-              promptForApproval,
-              tokenTracker,
-              isToolDenied: (toolName: string) => MUTATING_TOOLS.has(toolName),
-            });
-            process.stdout.write("\n");
-          }
+               system: systemPrompt + "\n\n" + PLAN_MODE_PROMPT,
+               write: (text) => process.stdout.write(text),
+               promptForApproval,
+               tokenTracker,
+               isToolDenied: (toolName: string) => {
+                 return MUTATING_TOOLS.has(toolName) || toolName.startsWith(MCP_TOOL_PREFIX);
+               },
+             });
+             process.stdout.write("\n");
+           }
         }
       } catch (error: unknown) {
         process.stdout.write("\n");
@@ -303,6 +326,7 @@ export async function startRepl(apiKey: string, config: ResolvedConfig = {}): Pr
     }
   } finally {
     rl.close();
+    await mcpManager.close();
 
     if (projectRoot && shouldPersistSession) {
       const transcriptMessages = messages.slice(bootstrapMessageCount) as SessionTranscript["messages"];

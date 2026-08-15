@@ -66,4 +66,20 @@ describe("tool registry permission overrides", () => {
     expect(registry.get("edit_file")?.permission).toBe("prompt");
     expect(registry.get("glob")?.permission).toBe("allow");
   });
+
+  it("applies overrides to tools registered after registry creation", () => {
+    const registry = createToolRegistry({ "mcp__filesystem__read_file": "deny" });
+
+    registry.register({
+      definition: {
+        name: "mcp__filesystem__read_file",
+        description: "MCP read file",
+        input_schema: { type: "object", properties: {} },
+      },
+      permission: "prompt",
+      execute: async () => ({ content: "ok" }),
+    });
+
+    expect(registry.get("mcp__filesystem__read_file")?.permission).toBe("deny");
+  });
 });

@@ -93,4 +93,36 @@ describe("mergeConfigs", () => {
       write_file: "prompt",
     });
   });
+
+  it("merges MCP server entries by server name", () => {
+    const global: Config = {
+      mcpServers: {
+        filesystem: {
+          command: "npx",
+          args: ["server-filesystem", "."],
+          env: { MODE: "global" },
+        },
+      },
+    };
+    const local: Config = {
+      mcpServers: {
+        filesystem: {
+          command: "npx",
+          env: { DEBUG: "1" },
+          enabled: false,
+        },
+      },
+    };
+
+    const result = mergeConfigs([global, local]);
+
+    expect(result.mcpServers).toEqual({
+      filesystem: {
+        command: "npx",
+        args: ["server-filesystem", "."],
+        env: { MODE: "global", DEBUG: "1" },
+        enabled: false,
+      },
+    });
+  });
 });

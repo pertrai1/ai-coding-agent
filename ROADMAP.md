@@ -145,7 +145,7 @@ This roadmap translates `REQUIREMENTS.md` into phased, atomic tasks for building
 
 ## Going Further - Stretch Phases
 
-- [ ] Add Model Context Protocol (MCP) client support for external tool servers.
+- [x] Add Model Context Protocol (MCP) client support for external tool servers.
 - [ ] Add reusable skills with named prompts and tool bundles.
 - [ ] Add lifecycle hooks (before tool, after edit, on startup).
 - [x] Add model switching inside an active session.

@@ -48,6 +48,13 @@ When plan mode is active, the agent loop SHALL deny all mutating tool calls (`wr
 - **AND** the content SHALL indicate the tool was denied because plan mode is active
 - **AND** the tool SHALL NOT execute
 
+#### Scenario: MCP tool denied in plan mode
+- **WHEN** plan mode is active
+- **AND** the model requests `mcp__filesystem__read_file`
+- **THEN** the tool call SHALL be denied with `isError: true`
+- **AND** the content SHALL indicate the tool was denied because plan mode is active
+- **AND** the tool SHALL NOT execute
+
 #### Scenario: Read-only tools work in plan mode
 - **WHEN** plan mode is active
 - **AND** the model requests `read_file`

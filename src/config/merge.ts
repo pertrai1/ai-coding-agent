@@ -17,6 +17,19 @@ export function mergeConfigs(configs: (Config | null)[]): Config {
     if (config.permissions) {
       result.permissions = { ...result.permissions, ...config.permissions };
     }
+
+    if (config.mcpServers) {
+      const mergedServers = { ...result.mcpServers };
+      for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+        const existing = mergedServers[serverName];
+        mergedServers[serverName] = {
+          ...existing,
+          ...serverConfig,
+          env: { ...existing?.env, ...serverConfig.env },
+        };
+      }
+      result.mcpServers = mergedServers;
+    }
   }
 
   return result;

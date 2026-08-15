@@ -23,7 +23,7 @@ The system SHALL look for config files at three scopes in this order: global (`~
 - **THEN** only the project config SHALL be loaded and applied over built-in defaults
 
 ### Requirement: Config file format
-Each config file SHALL be a JSON file with the following optional keys: `model` (string), `systemPromptExtra` (string), and `permissions` (object mapping tool names to `"allow"`, `"prompt"`, or `"deny"`).
+Each config file SHALL be a JSON file with the following optional keys: `model` (string), `systemPromptExtra` (string), `permissions` (object mapping tool names to `"allow"`, `"prompt"`, or `"deny"`), and `mcpServers` (object keyed by server name).
 
 #### Scenario: Valid config with all keys
 - **WHEN** a config file contains `{ "model": "claude-haiku-4-5-20250514", "systemPromptExtra": "Be brief.", "permissions": { "bash": "deny" } }`
@@ -36,6 +36,13 @@ Each config file SHALL be a JSON file with the following optional keys: `model` 
 #### Scenario: Config with unknown keys
 - **WHEN** a config file contains `{ "model": "claude-haiku-4-5-20250514", "unknownKey": true }`
 - **THEN** the system SHALL parse the known `model` key and silently ignore `unknownKey`
+
+### Requirement: MCP server config format
+Each config file MAY define an `mcpServers` object keyed by server name. Each server entry SHALL support `command` (string), `args` (string array), `env` (string-to-string object), and `enabled` (boolean).
+
+#### Scenario: Valid MCP server config is parsed
+- **WHEN** a config file contains `{ "mcpServers": { "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."], "enabled": true } } }`
+- **THEN** the system SHALL parse the `filesystem` server entry successfully
 
 ### Requirement: Config merge order
 The system SHALL merge config values in the order global < project < local, where later scopes override earlier scopes. Scalar values use last-writer-wins. The `permissions` object SHALL be shallow-merged, where each tool name key in a later scope overrides that same key from an earlier scope.
@@ -54,6 +61,15 @@ The system SHALL merge config values in the order global < project < local, wher
 - **WHEN** global config has `{ "model": "claude-sonnet-4-20250514", "systemPromptExtra": "Be helpful." }`
 - **AND** project config has `{ "model": "claude-haiku-4-5-20250514" }`
 - **THEN** resolved config SHALL have model `"claude-haiku-4-5-20250514"` and systemPromptExtra `"Be helpful."`
+
+### Requirement: MCP server config merge order
+The resolved `mcpServers` object SHALL merge in the same order as the rest of config: global < project < local. Server names SHALL be merged by key, and later scopes SHALL override scalar fields while preserving unspecified earlier fields for the same server.
+
+#### Scenario: Later scope overrides one field for an existing server
+- **WHEN** global config defines `mcpServers.filesystem.command` and `args`
+- **AND** local config defines only `mcpServers.filesystem.enabled: false`
+- **THEN** the resolved `filesystem` server SHALL retain the earlier command and args
+- **AND** use `enabled: false` from the later scope
 
 ### Requirement: Invalid config handling
 When a config file contains invalid JSON, the system SHALL log a warning to stderr and skip that scope. When a `permissions` value is not one of `"allow"`, `"prompt"`, or `"deny"`, the system SHALL log a warning and skip that specific permission entry.

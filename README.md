@@ -14,6 +14,7 @@ Think of it as a pairing partner that can actually touch your codebase.
 - **Resumes sessions** — pick up where you left off
 - **Plan mode** — analyze first, code later (with approval flow)
 - **Subagents** — delegates focused tasks to isolated agent instances
+- **MCP external tools** — loads additional tools from configured Model Context Protocol servers
 - **Auto-compresses context** when approaching the token limit
 
 ## Prerequisites
@@ -125,12 +126,15 @@ The agent has seven tools it can call autonomously during a conversation:
 | `bash` | Execute a shell command | asks approval |
 | `subagent` | Spawn an isolated subagent for a focused task | asks approval |
 
+It can also load extra tools from configured MCP servers at startup. Those tools are exposed with names like `mcp__filesystem__read_file` and default to approval prompts.
+
 ### Permissions
 
 Each tool has a permission mode:
 
 - **allow** — Executes immediately with no prompt (`read_file`, `glob`, `grep`)
 - **prompt** — Shows the tool name and arguments and asks you to approve before running (`write_file`, `edit_file`, `bash`, `subagent`)
+- **prompt** — Shows the tool name and arguments and asks you to approve before running (`write_file`, `edit_file`, `bash`, `subagent`, and all MCP tools by default)
 - **deny** — Blocks execution and returns a denial to the model
 
 When a tool requires approval:
@@ -163,6 +167,13 @@ Configuration is loaded from three locations, merged in order (later files overr
     "bash": "prompt",
     "write_file": "allow",
     "edit_file": "deny"
+  },
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "enabled": true
+    }
   }
 }
 ```
@@ -171,6 +182,23 @@ Configuration is loaded from three locations, merged in order (later files overr
 - `model` — Default model to use (can be changed mid-session with `/model`)
 - `systemPromptExtra` — Additional text appended to the system prompt
 - `permissions` — Override per-tool permission modes (`allow`, `prompt`, or `deny`)
+- `mcpServers` — Configure external stdio MCP tool servers by name
+
+### MCP Servers
+
+Each `mcpServers` entry supports:
+
+- `command` — Executable to spawn
+- `args` — Optional argument array
+- `env` — Optional environment variables passed to the server
+- `enabled` — Optional boolean to disable a configured server without deleting it
+
+Notes:
+
+- MCP tools are discovered before the first model request in a session.
+- If one configured server fails to start, the REPL warns and continues.
+- MCP tools are denied in plan mode.
+- MCP tools are not exposed to autonomous subagents in this release.
 
 ### Environment Variables
 
@@ -238,6 +266,9 @@ src/
   subagent/
     index.ts                # Subagent spawner (isolated agent instances)
     tool.ts                 # Subagent tool registration
+  mcp/
+    client.ts               # MCP stdio client wrapper for one server
+    manager.ts              # MCP startup, tool registration, and shutdown cleanup
   tools/
     index.ts                # Tool registry, types, and permission defaults
     readFileTool.ts         # read_file tool

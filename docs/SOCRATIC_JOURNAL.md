@@ -335,3 +335,44 @@ That is easier to reason about, easier to test, and safer than letting a live RE
 **Demonstrated in:**
 - `src/repl.ts:206-229` — three-way approval prompt: `y` (approve and exit plan mode), `n` (reject and stay), or freeform text (feedback that revises the plan)
 - `src/repl.ts:211-213` — approval appends "Plan approved. Please proceed with implementation." to conversation history
+
+---
+
+## Going Further - MCP Client Support
+
+### Q1: Why keep external MCP tools inside the existing tool registry instead of building a second execution path?
+
+**Why it matters:** External integrations often tempt you into creating a special-case subsystem. That usually feels fast at first and expensive forever after, because every approval rule, plan-mode check, and conversation-history update now needs to exist twice.
+
+**What we learned:** The clean seam was already there. The tool registry holds tool metadata plus executors, and the agent loop only cares about that contract. By translating discovered MCP tools into normal `ToolRegistration` objects, the existing Anthropic tool-call loop, denial handling, and tool-result injection continue to work unchanged. The only new logic is discovery and registration at startup.
+
+**Demonstrated in:**
+- `src/mcp/manager.ts:1-90` — discovered MCP tools are converted into normal tool registrations
+- `src/tools/index.ts:20-68` — the registry now supports late registration while still applying permission overrides
+- `src/agent.ts:156-217` — the agent loop continues to execute tools through the same permission and result path
+
+---
+
+### Q2: Why apply permission overrides at registration time instead of doing one override pass after startup?
+
+**Why it matters:** A one-time override pass works only when every tool exists up front. As soon as tools become dynamic, that design starts lying to you. Config says one thing; runtime behavior does another.
+
+**What we learned:** The registry is the right place to make permissions final because every tool, whether built-in, subagent, or MCP-discovered, enters the system through `register()`. Moving override application into registration time fixed an existing weakness for late-registered tools and gave MCP support the behavior users expect from config.
+
+**Demonstrated in:**
+- `src/tools/index.ts:32-56` — `register()` now applies configured overrides immediately
+- `src/__tests__/config/permissions.test.ts:72-86` — regression test for a tool registered after registry creation
+
+---
+
+### Q3: Why deny MCP tools in plan mode and exclude them from subagents for the first release?
+
+**Why it matters:** MCP is not just "more tools." It is a trust-boundary change. A built-in tool is code you ship and review. An MCP tool can come from an arbitrary external server process.
+
+**What we learned:** The first safe version should preserve human control. Plan mode promises read-only behavior, so MCP tools must be denied there even if their names sound harmless. Subagents run without interactive approval prompts, so giving them external tools would silently expand autonomous power. Restricting MCP access to the main REPL keeps the new capability useful without weakening the safety model.
+
+**Demonstrated in:**
+- `src/repl.ts:40-41` — MCP tools are identified by the `mcp__` prefix alongside mutating built-ins
+- `src/repl.ts:211-214` — plan mode denies MCP-prefixed tools before execution
+- `src/repl.ts:90-103` — the subagent registry is populated from non-MCP tools only
+- `src/__tests__/agent-plan-mode.test.ts:254-288` — MCP-prefixed tools are denied under the same structured error path

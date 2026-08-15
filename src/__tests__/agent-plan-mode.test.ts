@@ -249,4 +249,39 @@ describe("agent plan mode", () => {
       is_error: true,
     });
   });
+
+  it("can deny MCP tools by prefix during plan mode", async () => {
+    mockToolUseThenTextResponse("mcp__filesystem__read_file", '{"path":"file.txt"}', "Done.");
+
+    const execute = vi.fn<(input: Record<string, unknown>) => Promise<{ content: string }>>();
+    const registry = createToolRegistry();
+    registry.register({
+      definition: {
+        name: "mcp__filesystem__read_file",
+        description: "MCP test tool",
+        input_schema: { type: "object", properties: {} },
+      },
+      permission: "prompt",
+      execute,
+    });
+
+    const messages: Message[] = [{ role: "user", content: [{ type: "text", text: "Use the MCP tool." }] }];
+
+    await runAgentLoop({
+      messages,
+      toolRegistry: registry,
+      model: "claude-sonnet-4-20250514",
+      apiKey: "test-key",
+      write: vi.fn(),
+      isToolDenied: (toolName) => toolName.startsWith("mcp__"),
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(messages[2].content[0]).toEqual({
+      type: "tool_result",
+      tool_use_id: "tool_1",
+      content: expect.stringContaining("plan mode"),
+      is_error: true,
+    });
+  });
 });

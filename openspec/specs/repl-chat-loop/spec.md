@@ -179,6 +179,22 @@ The REPL SHALL use the model specified in the resolved config. If no model is sp
 - **WHEN** resolved config has no `model` key
 - **THEN** the REPL SHALL use the built-in default model `"claude-sonnet-4-20250514"`
 
+### Requirement: MCP startup before first model call
+When resolved config includes enabled MCP servers, the REPL SHALL initialize them before the first model request so discovered tool definitions are available to the model from the beginning of the session.
+
+#### Scenario: First request includes discovered MCP tools
+- **WHEN** the REPL starts with a healthy configured MCP server
+- **AND** the user sends the first chat message
+- **THEN** the tool definitions sent to the model SHALL include the server's discovered namespaced MCP tools
+
+### Requirement: MCP startup warnings are non-fatal
+If MCP startup produces server-specific failures, the REPL SHALL display warnings and continue running.
+
+#### Scenario: Startup warning does not abort the session
+- **WHEN** an MCP server fails during startup
+- **THEN** the REPL SHALL log a warning for that server
+- **AND** SHALL continue accepting user input
+
 ### Requirement: Session bootstrap mode
 The REPL SHALL start in one of two bootstrap modes: fresh session or resumed session. Fresh sessions SHALL inject durable memory context and recent session summaries without restoring old chat turns. Resumed sessions SHALL restore the saved transcript for the requested session identifier.
 

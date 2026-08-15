@@ -334,3 +334,53 @@ A practical lesson: when adding new required fields to an options type (`HandleS
 Good engineers ask, "Where does this state belong?" before they start coding. Plan mode state belongs in the REPL because the REPL is the orchestrator — it manages user interaction, mode switches, and the flow between planning and execution. The agent loop is a worker. Workers don't decide what mode they're in.
 
 Good engineers also ask, "What's the minimum interface I need?" The `isToolDenied` callback is a single function that takes a string and returns a boolean. That's the minimum contract for "should this tool be blocked?" Any extra complexity — knowing why, knowing the mode, knowing the user — would leak concerns across boundaries.
+
+# Going Further: Plugging In External Tool Servers With MCP
+
+This step is where the agent stops acting like a closed appliance and starts acting like a power strip. Before this change, every tool had to live inside the repo. If you wanted a new capability, you edited TypeScript, shipped new code, and restarted the world. Now the agent can connect to external Model Context Protocol servers at startup and treat their tools like first-class citizens.
+
+## Technical Architecture
+
+The central architectural move is restraint. We did not build a parallel "MCP execution engine." We built an adapter.
+
+`src/mcp/client.ts:1-83` wraps one stdio MCP server. It owns the SDK client, starts the child process transport, asks the server for its tools, calls those tools later, and normalizes whatever comes back into the plain string-based `ToolResult` shape our agent already understands.
+
+`src/mcp/manager.ts:1-92` is the orchestrator. It reads configured servers, connects to each healthy one, converts discovered MCP tools into normal `ToolRegistration` objects, and registers them under namespaced names like `mcp__filesystem__read_file`. That namespacing is more important than it looks. Without it, a server tool called `read_file` could collide with our built-in `read_file` and turn debugging into a crime scene.
+
+The REPL owns lifecycle. `src/repl.ts:82-103` creates the main tool registry, initializes MCP servers before the first model call, copies only non-MCP tools into the subagent registry, and logs non-fatal startup warnings. On shutdown, `src/repl.ts:313-316` closes the MCP manager so spawned server processes are not left hanging around like forgotten background daemons.
+
+## Codebase Structure
+
+This phase added one new runtime area and touched three existing seams:
+
+* `src/mcp/client.ts`: one-server MCP client wrapper
+* `src/mcp/manager.ts`: multi-server startup, registration, warning collection, and cleanup
+* `src/config/types.ts`, `src/config/loadConfigFile.ts`, `src/config/merge.ts`: new `mcpServers` config shape and merge rules
+* `src/tools/index.ts`: registry now applies permission overrides when any tool is registered, not just during built-in startup
+* `src/repl.ts`: MCP startup, warning display, subagent restriction, and shutdown cleanup
+
+That is good architecture in miniature. New behavior got a new home. Existing homes changed only where their responsibilities genuinely expanded.
+
+## Technologies and Why
+
+We used the official `@modelcontextprotocol/sdk` instead of writing JSON-RPC and stdio framing ourselves. This is one of those moments where engineering maturity means knowing when not to be clever. Protocol code looks easy until it becomes the reason your process hangs at 2 a.m.
+
+We kept scope tight and supported stdio servers only. That was deliberate. Remote HTTP MCP servers bring authentication, network policy, retry behavior, and a bigger blast radius. Local stdio servers are enough to unlock extensibility without dragging the project into distributed-systems problems.
+
+We also added `zod` because the v1 SDK expects it as a peer dependency. This is a nice reminder that dependency graphs are not just about what *you* import directly. Sometimes the real engineering work is understanding the contract your dependency expects the runtime to satisfy.
+
+## Lessons Learned
+
+The most interesting lesson was that dynamic tools exposed a flaw in our static assumptions. The original permission override logic only worked because all tools were registered up front. MCP made that assumption false. The fix was elegant: move override application into `register()` itself (`src/tools/index.ts:37-50`). That is the kind of bug good systems uncover for you. A new feature reveals a shaky abstraction, and the right response is to strengthen the abstraction, not duct-tape the feature.
+
+Another lesson is that "safe by default" needs to be real, not decorative. We default MCP tools to `prompt`, deny them in plan mode, and exclude them from autonomous subagents. None of those rules make the feature flashy. All of them make it trustworthy.
+
+There is also a product lesson here. Warning and continuing when one MCP server fails (`src/mcp/manager.ts:69-76`) is a better user experience than turning optional extensibility into a startup hostage situation. Extensions should enhance the core product, not hold it ransom.
+
+## How Good Engineers Think
+
+Good engineers ask, "Where is the trust boundary?" MCP support is not just a transport problem. It is a policy problem. The moment you let outside processes add tools to your agent, you are making a decision about authority. That is why the permission model and plan-mode behavior matter as much as the network code.
+
+Good engineers also look for reuse before reinvention. The winning move here was not "invent an MCP subsystem." It was "translate MCP tools into the tool contract we already have." Reuse is not laziness. It is respect for the code you already paid to design and test.
+
+And finally, good engineers treat shutdown paths as first-class behavior. Starting external processes is only half the job. Cleaning them up predictably is the other half. Otherwise your successful feature slowly turns your machine into a haunted house full of orphaned child processes.
