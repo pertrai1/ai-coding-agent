@@ -61,5 +61,5 @@ evaluations/results/
 .claude/
 
 # Agent persistence artifacts
-.ai-agent/memory/
-.ai-agent/sessions/
+.ai-agent/*
+.agents/*
